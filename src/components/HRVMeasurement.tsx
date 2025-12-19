@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 // ステートの定義
-type State = 'intro' | 'measuring' | 'analyzing' | 'result';
+type State = 'intro' | 'check' | 'measuring' | 'analyzing' | 'result';
 type TrainingState = 'COACH' | 'CLASH';
 
 interface Props {
@@ -21,6 +21,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   const [feedback, setFeedback] = useState("");
   const [remainingTime, setRemainingTime] = useState(30);
 
+  // チェックフェーズ用
+  const [isSignalGood, setIsSignalGood] = useState(false);
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
+
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,10 +33,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   const requestRef = useRef<number>();
 
   // 計測データ保持用
-  const brightnessData = useRef<number[]>([]);
+  const brightnessData = useRef<number[]>([]); // スムージング後のデータを入れる
   const lastHeartBeat = useRef<number>(Date.now());
   const rrIntervals = useRef<number[]>([]);
-  const recentBrightness = useRef<number[]>([]); // グラフ描画用
+  const goodSignalStartTime = useRef<number | null>(null);
 
   // カメラを起動
   const startCamera = async () => {
@@ -54,17 +58,16 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       }
 
       setMediaStream(stream);
-      setPhase('measuring');
+      setPhase('check'); // まずチェックフェーズへ
     } catch (err: any) {
       console.error("カメラ起動失敗:", err);
-      // エラーハンドリング (簡略化)
-      alert("カメラが起動できませんでした。設定を確認してください。");
+      alert("カメラが起動できませんでした。設定を確認してください。\n" + err.name);
     }
   };
 
   // ストリーム設定
   useEffect(() => {
-    if (phase === 'measuring' && mediaStream && videoRef.current) {
+    if ((phase === 'check' || phase === 'measuring') && mediaStream && videoRef.current) {
       videoRef.current.srcObject = mediaStream;
       videoRef.current.onloadedmetadata = () => {
         videoRef.current?.play().catch(e => console.error("再生エラー:", e));
@@ -78,7 +81,9 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
               .catch(e => console.warn("ライト点灯失敗:", e));
           }
         }
-        startAnalysis();
+
+        if (phase === 'check') startCheckSignal();
+        if (phase === 'measuring') startAnalysis();
       };
     }
   }, [phase, mediaStream]);
@@ -87,15 +92,71 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   useEffect(() => {
     return () => {
       if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
+        // mediaStream.getTracks().forEach(track => track.stop()); // 画面遷移時のみ止めるならここはコメントアウトでも良いが、安全のため
       }
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, []);
+
+  // フェーズ変更時の処理
+  useEffect(() => {
+    if (phase === 'measuring') {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      startAnalysis();
+    }
+  }, [phase]);
+
+  // 信号チェック（準備フェーズ）
+  const startCheckSignal = () => {
+    const check = () => {
+      if (!videoRef.current || !canvasRef.current) return;
+      const ctx = canvasRef.current.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(videoRef.current, 0, 0, 100, 100);
+      const imageData = ctx.getImageData(0, 0, 100, 100);
+      const data = imageData.data;
+
+      let rSum = 0, gSum = 0, bSum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        rSum += data[i];
+        gSum += data[i + 1];
+        bSum += data[i + 2];
+      }
+      const pixels = data.length / 4;
+      const avgR = rSum / pixels;
+      const avgG = gSum / pixels;
+      const avgB = bSum / pixels;
+
+      // 赤色が支配的か判定
+      const isRed = avgR > 100 && avgR > avgG * 1.5 && avgR > avgB * 1.5;
+
+      setIsSignalGood(isRed);
+
+      if (isRed) {
+        if (!goodSignalStartTime.current) goodSignalStartTime.current = Date.now();
+        const duration = Date.now() - goodSignalStartTime.current;
+
+        const count = 3 - Math.floor(duration / 1000);
+        setReadyCountdown(count > 0 ? count : 0);
+
+        if (duration > 3000) {
+          setPhase('measuring');
+          return;
+        }
+      } else {
+        goodSignalStartTime.current = null;
+        setReadyCountdown(null);
+      }
+
+      if (phase === 'check') {
+        requestRef.current = requestAnimationFrame(check);
       }
     };
-  }, [mediaStream]);
+    requestRef.current = requestAnimationFrame(check);
+  };
 
-  // グラフ描画（ベジェ曲線で滑らかに）
+  // グラフ描画
   const drawWaveform = () => {
     const canvas = waveformCanvasRef.current;
     if (!canvas) return;
@@ -104,28 +165,27 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
     const width = canvas.width;
     const height = canvas.height;
-    const data = recentBrightness.current;
+    // 最新100件程度のデータを使用
+    const dataLen = 150;
+    const data = brightnessData.current.slice(-dataLen);
 
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    if (data.length > 5) { // ある程度データがないと描画しない
-      // スケーリング
+    if (data.length > 5) {
       const min = Math.min(...data);
       const max = Math.max(...data);
       const range = max - min || 1;
 
-      // 点の座標を計算
       const points = data.map((val, i) => ({
         x: (i / (data.length - 1)) * width,
-        y: height - ((val - min) / range * height * 0.6 + height * 0.2) // 上下20%マージン
+        y: height - ((val - min) / range * height * 0.7 + height * 0.15)
       }));
 
-      // スムージング描画
       ctx.moveTo(points[0].x, points[0].y);
       for (let i = 0; i < points.length - 1; i++) {
         const xc = (points[i].x + points[i + 1].x) / 2;
@@ -136,8 +196,14 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     }
   };
 
-  // 解析ロープ
+  // 解析実行
   const startAnalysis = () => {
+    // リセット
+    brightnessData.current = [];
+    rrIntervals.current = [];
+    lastHeartBeat.current = Date.now();
+    let rawHistory: number[] = [];
+
     const startTime = Date.now();
     const duration = 30000;
 
@@ -146,47 +212,62 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const ctx = canvasRef.current.getContext('2d');
       if (!ctx) return;
 
-      // データ取得
       ctx.drawImage(videoRef.current, 0, 0, 100, 100);
       const imageData = ctx.getImageData(0, 0, 100, 100);
       const data = imageData.data;
 
-      // 輝度計算
+      // 輝度取得
       let rSum = 0;
       for (let i = 0; i < data.length; i += 4) rSum += data[i];
       const avgR = rSum / (data.length / 4);
 
-      brightnessData.current.push(avgR);
+      // スムージング処理 (移動平均)
+      // 直近の値をバッファリング
+      rawHistory.push(avgR);
+      if (rawHistory.length > 5) rawHistory.shift();
+      const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
 
-      // グラフ用データ（移動平均でノイズ除去）
-      const lastVal = recentBrightness.current[recentBrightness.current.length - 1] || avgR;
-      const smoothedVal = lastVal * 0.8 + avgR * 0.2; // 簡易スムージング
-      recentBrightness.current.push(smoothedVal);
-      if (recentBrightness.current.length > 300) { // 300フレーム = 約5秒分（ゆっくりスクロール）
-        recentBrightness.current.shift();
-      }
+      brightnessData.current.push(smoothedVal);
+      // メモリ対策: 古すぎるデータは捨てる
+      if (brightnessData.current.length > 1000) brightnessData.current.shift();
 
       drawWaveform();
 
-      // ピーク検出
-      if (brightnessData.current.length > 10) {
-        const last = brightnessData.current[brightnessData.current.length - 1];
-        const prev = brightnessData.current[brightnessData.current.length - 2];
-        if (prev > avgR && prev > brightnessData.current[brightnessData.current.length - 3]) {
+      // ピーク検出（改良版）
+      if (brightnessData.current.length > 15) {
+        // 現在値がピークかどうか判定（前後5フレームと比較）
+        const currentIdx = brightnessData.current.length - 6; // 少し遅延させて判定
+        const val = brightnessData.current[currentIdx];
+
+        // 局所最大値判定
+        let isPeak = true;
+        for (let i = 1; i <= 5; i++) {
+          if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
+            isPeak = false;
+            break;
+          }
+        }
+
+        if (isPeak) {
           const now = Date.now();
           const interval = now - lastHeartBeat.current;
-          if (interval > 400 && interval < 1500) {
+          // 間隔チェック (BPM 40-180に対応: 333ms - 1500ms)
+          if (interval > 330 && interval < 1500) {
             rrIntervals.current.push(interval);
             lastHeartBeat.current = now;
+
+            // BPM更新
             if (rrIntervals.current.length >= 3) {
               const last3 = rrIntervals.current.slice(-3);
-              setBpm(Math.round(60000 / (last3.reduce((a, b) => a + b, 0) / last3.length)));
+              const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
+              setBpm(Math.round(60000 / avgInterval));
             }
           }
+          // 初回検出時は時刻更新のみ
+          if (interval > 1500) lastHeartBeat.current = now;
         }
       }
 
-      // 進行管理
       const elapsed = Date.now() - startTime;
       setProgress(Math.min((elapsed / duration) * 100, 100));
       setRemainingTime(Math.ceil((duration - elapsed) / 1000));
@@ -206,31 +287,32 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       mediaStream.getTracks().forEach(track => track.stop());
       setMediaStream(null);
     }
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
 
   const processResults = async () => {
     setPhase('analyzing');
     if (rrIntervals.current.length < 5) {
-      alert("計測できませんでした。再試行してください。");
+      alert("うまく脈拍が取れませんでした。\n指をカメラに強く押し付けすぎず、軽く触れる程度にして再試行してください。");
       setPhase('intro');
       return;
     }
 
-    // 計算ロジックなどは変更なし
+    // RMSSD計算
     const diffs = [];
     for (let i = 0; i < rrIntervals.current.length - 1; i++) {
       diffs.push(Math.pow(rrIntervals.current[i + 1] - rrIntervals.current[i], 2));
     }
     const rmssd = Math.sqrt(diffs.reduce((a, b) => a + b, 0) / diffs.length);
-    const calculatedHrvScore = Math.round(rmssd);
+    const calculatedHrvScore = Math.min(Math.round(rmssd), 100); // 100上限
     const calculatedBpm = Math.round(60000 / (rrIntervals.current.reduce((a, b) => a + b, 0) / rrIntervals.current.length));
 
     setHrvScore(calculatedHrvScore);
     setBpm(calculatedBpm);
-    const isCoach = rmssd >= 40;
+
+    const isCoach = rmssd >= 40; // 閾値調整
     const newState = isCoach ? 'COACH' : 'CLASH';
     setState(newState);
+
     const feedbackText = isCoach
       ? "完璧な『凪』の状態です。無重力フライトの準備が整いました。あなたの直感に従って、未来を選択してください。"
       : "脳内渋滞（重力）を検知しました。マモルが安全を守るために必死にブレーキを踏んでいます。まずは5分間、Dream Makerに任せて深呼吸しましょう。";
@@ -239,7 +321,6 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     setPhase('result');
   };
 
-  // 挨拶の決定
   const getGreeting = () => {
     const h = new Date().getHours();
     if (h >= 5 && h < 11) return "おはようございます、";
@@ -250,7 +331,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
       <div className={`w-full h-full sm:h-auto sm:max-w-md relative overflow-hidden flex flex-col items-center justify-center transition-all duration-500
-        ${phase === 'measuring' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-sage-50 sm:rounded-3xl p-6'}`}>
+        ${(phase === 'measuring' || phase === 'check') ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-sage-50 sm:rounded-3xl p-6'}`}>
 
         {onClose && phase !== 'measuring' && (
           <button onClick={onClose} className="absolute top-6 right-6 z-10 text-sage-400 hover:text-sage-600 p-2 bg-white/50 rounded-full">
@@ -258,6 +339,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
           </button>
         )}
 
+        {/* --- 導入画面 --- */}
         {phase === 'intro' && (
           <div className="text-center w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -272,48 +354,82 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
               onClick={startCamera}
               className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold hover:shadow-lg hover:scale-[1.02] transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2"
             >
-              計測を開始する
+              計測を始める
             </button>
+            <p className="mt-4 text-xs text-sage-400">※ カメラの使用を許可してください</p>
           </div>
         )}
 
+        {/* --- チェック（準備）画面 --- */}
+        {phase === 'check' && (
+          <div className="flex flex-col items-center justify-center h-full w-full py-10 px-6 animate-in fade-in duration-500">
+            <h2 className="text-xl font-bold text-white mb-2">準備しましょう</h2>
+            <p className="text-white/80 text-sm mb-12 text-center leading-relaxed">
+              下図のように、カメラが<br />赤くなるよう指で覆ってください
+            </p>
+
+            <div className="flex justify-center gap-8 mb-16">
+              <div className="flex flex-col items-center gap-3">
+                <div className={`relative w-24 h-24 rounded-full overflow-hidden border-4 shadow-xl transition-all duration-300 ${isSignalGood ? 'border-emerald-400 scale-105' : 'border-white/50'}`}>
+                  <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                </div>
+                <span className="text-white text-xs font-bold tracking-wider">カメラ映像</span>
+              </div>
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-white/50 shadow-xl"></div>
+                <span className="text-white text-xs font-bold tracking-wider">見本</span>
+              </div>
+            </div>
+
+            {/* 状態表示 */}
+            <div className="h-24 flex items-center justify-center w-full">
+              {isSignalGood ? (
+                <div className="text-center animate-pulse bg-emerald-500/20 px-8 py-4 rounded-2xl backdrop-blur-sm border border-emerald-500/30">
+                  <div className="text-4xl font-black text-white mb-1">OK!</div>
+                  <div className="text-white font-bold">{readyCountdown}秒後にスタート</div>
+                </div>
+              ) : (
+                <div className="text-white/60 text-sm bg-white/10 px-6 py-3 rounded-full">
+                  カメラ全体を指で覆ってください
+                </div>
+              )}
+            </div>
+
+            <canvas ref={canvasRef} width="100" height="100" className="hidden" />
+          </div>
+        )}
+
+        {/* --- 計測中画面 --- */}
         {phase === 'measuring' && (
           <div className="flex flex-col items-center justify-between h-full w-full py-16 px-6 animate-in fade-in duration-700">
-
-            {/* カメラ映像（プレビュー用） */}
-            <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/50 shadow-inner mb-2 bg-black">
-              <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+            {/* プレビュー (小さく表示) */}
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/30 bg-black mb-4 shadow-lg">
+              <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover opacity-80" />
             </div>
-            <canvas ref={canvasRef} width="100" height="100" className="hidden" />
 
             <div className="text-center space-y-1 mb-6">
-              <p className="text-white/80 text-xs">指でカメラを覆ってください</p>
-              <h2 className="text-xl font-bold text-white tracking-widest">{bpm > 0 ? "計測中..." : "準備中..."}</h2>
+              <h2 className="text-xl font-bold text-white tracking-widest">計測中...</h2>
               <p className="text-white/60 text-xs">残り {remainingTime} 秒</p>
             </div>
 
             {/* プログレスリング & ハート */}
-            <div className="relative w-40 h-40 flex items-center justify-center mb-6">
+            <div className="relative w-48 h-48 flex items-center justify-center mb-6">
               <svg className="absolute w-full h-full transform -rotate-90">
-                <circle cx="80" cy="80" r="76" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="none" />
-                <circle cx="80" cy="80" r="76" stroke="white" strokeWidth="3" fill="none"
-                  strokeDasharray={2 * Math.PI * 76}
-                  strokeDashoffset={2 * Math.PI * 76 * ((100 - progress) / 100)}
+                <circle cx="96" cy="96" r="88" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="none" />
+                <circle cx="96" cy="96" r="88" stroke="white" strokeWidth="3" fill="none"
+                  strokeDasharray={2 * Math.PI * 88}
+                  strokeDashoffset={2 * Math.PI * 88 * ((100 - progress) / 100)}
                   className="transition-all duration-100 ease-linear"
                 />
               </svg>
-
-              {/* ハート */}
               <div className="animate-pulse duration-1000">
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
               </div>
-
-              <div className="absolute top-1/2 mt-12 text-white font-bold text-lg">
+              <div className="absolute top-1/2 mt-14 text-white font-bold text-xl">
                 {bpm > 0 ? bpm : '--'} <span className="text-xs font-normal">bpm</span>
               </div>
             </div>
 
-            {/* 波形グラフ */}
             <div className="w-full h-24 relative mb-4">
               <canvas ref={waveformCanvasRef} width="300" height="100" className="w-full h-full" />
               <div className="absolute bottom-0 left-0 w-full h-px bg-white/20"></div>
@@ -326,45 +442,48 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
           </div>
         )}
 
-        {phase === 'analyzing' && (
-          <div className="text-center py-10 w-full max-w-xs">
-            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <div className="text-xl font-bold text-sage-800">解析しています...</div>
-          </div>
-        )}
-
-        {phase === 'result' && (
-          <div className="text-center w-full max-w-xs animate-in zoom-in duration-500">
-            <div className="mb-2">
-              <span className="text-sage-500 text-sm font-bold tracking-widest">自律神経のスコア</span>
-            </div>
-
-            <div className="relative mb-6">
-              <div className="text-8xl font-serif text-sage-900 leading-none">{hrvScore}</div>
-              <div className={`font-bold flex items-center justify-center gap-1 mt-2 ${state === 'COACH' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                <span>{state === 'COACH' ? '🥰' : '🤔'}</span>
-                <span>{state === 'COACH' ? '絶好調ですね' : '少しお疲れのようです'}</span>
+        {/* --- 結果画面 --- */}
+        {(phase === 'analyzing' || phase === 'result') && (
+          <div className={`w-full h-full flex flex-col items-center justify-center bg-sage-50 sm:rounded-3xl p-6 ${phase === 'analyzing' ? '' : 'animate-in zoom-in duration-500'}`}>
+            {phase === 'analyzing' ? (
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                <div className="text-xl font-bold text-sage-800">解析中...</div>
               </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-sage-100 mb-6 text-left">
-              <div className="flex justify-between items-center mb-4 border-b border-sage-50 pb-4">
-                <div>
-                  <div className="text-xs text-sage-400">心拍数</div>
-                  <div className="text-2xl font-bold text-sage-800">{bpm} <span className="text-sm font-normal">bpm</span></div>
+            ) : (
+              <div className="text-center w-full max-w-xs">
+                <div className="mb-2">
+                  <span className="text-sage-500 text-sm font-bold tracking-widest">自律神経のスコア</span>
                 </div>
-                <div className="h-8 w-px bg-sage-100"></div>
-                <div>
-                  <div className="text-xs text-sage-400">自律神経バランス</div>
-                  <div className="text-2xl font-bold text-sage-800">{state}</div>
+                <div className="relative mb-6">
+                  <div className="text-8xl font-serif text-sage-900 leading-none">{hrvScore}</div>
+                  <div className={`font-bold flex items-center justify-center gap-1 mt-2 ${state === 'COACH' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                    <span>{state === 'COACH' ? '🥰' : '🤔'}</span>
+                    <span>{state === 'COACH' ? '絶好調ですね' : '少しお疲れのようです'}</span>
+                  </div>
                 </div>
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-sage-100 mb-6 text-left">
+                  <div className="flex justify-between items-center mb-4 border-b border-sage-50 pb-4">
+                    <div>
+                      <div className="text-xs text-sage-400">心拍数</div>
+                      <div className="text-2xl font-bold text-sage-800">{bpm} <span className="text-sm font-normal">bpm</span></div>
+                    </div>
+                    <div className="h-8 w-px bg-sage-100"></div>
+                    <div>
+                      <div className="text-xs text-sage-400">自律神経バランス</div>
+                      <div className="text-2xl font-bold text-sage-800">{state}</div>
+                    </div>
+                  </div>
+                  <p className="text-sage-700 text-sm leading-relaxed">{feedback}</p>
+                </div>
+                <button onClick={() => setPhase('intro')} className="text-sage-500 font-bold text-sm hover:text-sage-700 transition-colors">
+                  もう一度測定
+                </button>
+                <button onClick={onClose} className="mt-4 text-xs text-sage-400 underline p-2">
+                  閉じる
+                </button>
               </div>
-              <p className="text-sage-700 text-sm leading-relaxed">{feedback}</p>
-            </div>
-
-            <button onClick={() => setPhase('intro')} className="text-sage-500 font-bold text-sm hover:text-sage-700 transition-colors">
-              もう一度測定
-            </button>
+            )}
           </div>
         )}
       </div>
