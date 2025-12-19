@@ -436,6 +436,9 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
               {getGreeting()}<br />
               調子はいかがでしょうか😌
             </div>
+
+            {/* 解析用隠しキャンバス (これがないとループが止まる) */}
+            <canvas ref={canvasRef} width="100" height="100" className="hidden" />
           </div>
         )}
 
