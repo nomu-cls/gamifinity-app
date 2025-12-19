@@ -31,6 +31,14 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
   // カメラの起動
   const startCamera = async () => {
+    alert("DEBUG: ボタンが押されました。カメラを起動します...");
+
+    // ブラウザの互換性チェック
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("お使いのブラウザはカメラ機能をサポートしていません。Safari (iOS) または Chrome (Android) をお使いください。");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
@@ -38,12 +46,29 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setPhase('measuring');
-        startAnalysis();
+
+        // 動画の読み込み完了を待つ (iOS対応)
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(e => {
+            console.error("再生エラー:", e);
+            // play()が失敗しても計測フェーズには移行させる（ユーザーアクションでトリガーされているため通常は動く）
+          });
+          setPhase('measuring');
+          startAnalysis();
+        };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("カメラの起動に失敗しました:", err);
-      alert("カメラへのアクセスを許可してください。");
+      // 詳細なエラーメッセージを表示
+      let message = "カメラへのアクセスを許可してください。\n";
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        message += "設定 > Safari (またはブラウザ) > カメラ でアクセスを許可してください。";
+      } else if (err.name === 'NotFoundError') {
+        message += "カメラが見つかりません。";
+      } else {
+        message += `エラー詳細: ${err.message || err.name}`;
+      }
+      alert(message);
     }
   };
 
