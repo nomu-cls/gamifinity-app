@@ -61,7 +61,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       setPhase('check'); // まずチェックフェーズへ
     } catch (err: any) {
       console.error("カメラ起動失敗:", err);
-      alert("カメラが起動できませんでした。設定を確認してください。\n" + err.name);
+      alert("カメラが起動できませんでした。\n" + err.name);
     }
   };
 
@@ -91,9 +91,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   // クリーンアップ
   useEffect(() => {
     return () => {
-      if (mediaStream) {
-        // mediaStream.getTracks().forEach(track => track.stop()); // 画面遷移時のみ止めるならここはコメントアウトでも良いが、安全のため
-      }
+      // mediaStreamは意図的に維持（遷移でカメラを切らないため）
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, []);
@@ -171,8 +169,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; // より明るく
+    ctx.lineWidth = 3; // 線を太く
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -181,9 +179,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const max = Math.max(...data);
       const range = max - min || 1;
 
+      // 上下を大きく使って描画（マージンを減らす）
       const points = data.map((val, i) => ({
         x: (i / (data.length - 1)) * width,
-        y: height - ((val - min) / range * height * 0.7 + height * 0.15)
+        y: height - ((val - min) / range * height * 0.9 + height * 0.05) // 90%領域使用
       }));
 
       ctx.moveTo(points[0].x, points[0].y);
@@ -222,26 +221,24 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const avgR = rSum / (data.length / 4);
 
       // スムージング処理 (移動平均)
-      // 直近の値をバッファリング
       rawHistory.push(avgR);
       if (rawHistory.length > 5) rawHistory.shift();
       const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
 
       brightnessData.current.push(smoothedVal);
-      // メモリ対策: 古すぎるデータは捨てる
       if (brightnessData.current.length > 1000) brightnessData.current.shift();
 
       drawWaveform();
 
-      // ピーク検出（改良版）
-      if (brightnessData.current.length > 15) {
-        // 現在値がピークかどうか判定（前後5フレームと比較）
-        const currentIdx = brightnessData.current.length - 6; // 少し遅延させて判定
+      // ピーク検出（改良版: 感度調整）
+      if (brightnessData.current.length > 10) {
+        // ウインドウを少し狭めて反応速度を上げる (3フレーム前後と比較)
+        const currentIdx = brightnessData.current.length - 4;
         const val = brightnessData.current[currentIdx];
 
-        // 局所最大値判定
         let isPeak = true;
-        for (let i = 1; i <= 5; i++) {
+        // 前後3フレームで極大値かチェック
+        for (let i = 1; i <= 3; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
@@ -251,19 +248,19 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
         if (isPeak) {
           const now = Date.now();
           const interval = now - lastHeartBeat.current;
-          // 間隔チェック (BPM 40-180に対応: 333ms - 1500ms)
-          if (interval > 330 && interval < 1500) {
+          // BPM 40-200まで許容
+          if (interval > 300 && interval < 1500) {
             rrIntervals.current.push(interval);
             lastHeartBeat.current = now;
 
-            // BPM更新
-            if (rrIntervals.current.length >= 3) {
+            // 直近3回の平均でBPM表示
+            if (rrIntervals.current.length >= 2) {
               const last3 = rrIntervals.current.slice(-3);
               const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
               setBpm(Math.round(60000 / avgInterval));
             }
           }
-          // 初回検出時は時刻更新のみ
+          // 初回または時間が空きすぎた場合のリセット
           if (interval > 1500) lastHeartBeat.current = now;
         }
       }
@@ -292,7 +289,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   const processResults = async () => {
     setPhase('analyzing');
     if (rrIntervals.current.length < 5) {
-      alert("うまく脈拍が取れませんでした。\n指をカメラに強く押し付けすぎず、軽く触れる程度にして再試行してください。");
+      alert("計測データが不足しています。\nもう一度、リラックスして指を当ててください。");
       setPhase('intro');
       return;
     }
@@ -303,13 +300,13 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       diffs.push(Math.pow(rrIntervals.current[i + 1] - rrIntervals.current[i], 2));
     }
     const rmssd = Math.sqrt(diffs.reduce((a, b) => a + b, 0) / diffs.length);
-    const calculatedHrvScore = Math.min(Math.round(rmssd), 100); // 100上限
+    const calculatedHrvScore = Math.min(Math.round(rmssd), 100);
     const calculatedBpm = Math.round(60000 / (rrIntervals.current.reduce((a, b) => a + b, 0) / rrIntervals.current.length));
 
     setHrvScore(calculatedHrvScore);
     setBpm(calculatedBpm);
 
-    const isCoach = rmssd >= 40; // 閾値調整
+    const isCoach = rmssd >= 40;
     const newState = isCoach ? 'COACH' : 'CLASH';
     setState(newState);
 
@@ -408,7 +405,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
             </div>
 
             <div className="text-center space-y-1 mb-6">
-              <h2 className="text-xl font-bold text-white tracking-widest">計測中...</h2>
+              <h2 className="text-xl font-bold text-white tracking-widest">{phase === 'measuring' ? "計測中..." : "準備中..."}</h2>
               <p className="text-white/60 text-xs">残り {remainingTime} 秒</p>
             </div>
 
