@@ -253,26 +253,22 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
           const interval = now - lastHeartBeat.current;
 
           // BPM 40-180 (333ms - 1500ms)
-          if (interval > 330 && interval < 1500) {
-            // 前回のインターバルと大きく乖離していないかチェック
-            if (rrIntervals.current.length === 0 ||
-              (interval < rrIntervals.current[rrIntervals.current.length - 1] * 1.6 && // 許容範囲を少し広げる
-                interval > rrIntervals.current[rrIntervals.current.length - 1] * 0.5)) {
+          // BPM 37-200 (300ms - 1600ms)
+          if (interval > 300 && interval < 1600) {
+            // 厳しいフィルタを全撤廃。範囲内ならすべて採用する
+            rrIntervals.current.push(interval);
+            lastHeartBeat.current = now;
 
-              rrIntervals.current.push(interval);
-              lastHeartBeat.current = now;
-
-              // BPM表示 (直近3回の平均)
-              if (rrIntervals.current.length >= 2) {
-                const last3 = rrIntervals.current.slice(-3);
-                const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
-                setBpm(Math.round(60000 / avgInterval));
-              }
+            // BPM表示 (直近3回の平均)
+            if (rrIntervals.current.length >= 2) {
+              const last3 = rrIntervals.current.slice(-3);
+              const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
+              setBpm(Math.round(60000 / avgInterval));
             }
           }
           // 時間が空きすぎた場合はリセット
-          if (interval > 1500) {
-            lastHeartBeat.current = now; // ダミー時刻セットはやめて現在時刻にリセット
+          if (interval > 1600) {
+            lastHeartBeat.current = now;
           }
         }
       }
