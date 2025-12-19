@@ -20,6 +20,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   const [progress, setProgress] = useState(0);
   const [feedback, setFeedback] = useState("");
 
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
@@ -31,8 +33,6 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
   // カメラの起動
   const startCamera = async () => {
-    alert("DEBUG: ボタンが押されました。カメラを起動します...");
-
     // ブラウザの互換性チェック
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("お使いのブラウザはカメラ機能をサポートしていません。Safari (iOS) または Chrome (Android) をお使いください。");
@@ -44,19 +44,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
         video: { facingMode: 'environment' },
         audio: false
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-
-        // 動画の読み込み完了を待つ (iOS対応)
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(e => {
-            console.error("再生エラー:", e);
-            // play()が失敗しても計測フェーズには移行させる（ユーザーアクションでトリガーされているため通常は動く）
-          });
-          setPhase('measuring');
-          startAnalysis();
-        };
-      }
+      setMediaStream(stream);
+      setPhase('measuring');
     } catch (err: any) {
       console.error("カメラの起動に失敗しました:", err);
       // 詳細なエラーメッセージを表示
@@ -71,6 +60,26 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       alert(message);
     }
   };
+
+  // ストリームがセットされ、かつ計測フェーズになったら動画に割り当てて解析開始
+  useEffect(() => {
+    if (phase === 'measuring' && mediaStream && videoRef.current) {
+      videoRef.current.srcObject = mediaStream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().catch(e => console.error("再生エラー:", e));
+        startAnalysis();
+      };
+    }
+  }, [phase, mediaStream]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [mediaStream]);
 
   // PPG解析（輝度変化の抽出）
   const startAnalysis = () => {
@@ -123,9 +132,9 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      setMediaStream(null);
     }
     cancelAnimationFrame(requestRef.current!);
   };
