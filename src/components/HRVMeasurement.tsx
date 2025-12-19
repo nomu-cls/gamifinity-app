@@ -40,24 +40,43 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false
-      });
+      let stream;
+      try {
+        // まず背面カメラを試行
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false
+        });
+      } catch (e) {
+        console.warn("背面カメラの取得に失敗、標準カメラで再試行します:", e);
+        // 失敗したら（PCや一部Androidなど）任意のカメラを試行
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
       setMediaStream(stream);
       setPhase('measuring');
     } catch (err: any) {
       console.error("カメラの起動に失敗しました:", err);
-      // 詳細なエラーメッセージを表示
-      let message = "カメラへのアクセスを許可してください。\n";
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        message += "設定 > Safari (またはブラウザ) > カメラ でアクセスを許可してください。";
-      } else if (err.name === 'NotFoundError') {
-        message += "カメラが見つかりません。";
+
+      // エラーの種類を表示（デバッグ用）
+      const errorName = err.name || "UnknownError";
+      const errorMessage = err.message || "No detail";
+
+      let alertMsg = `カメラが起動できませんでした。\n(Error: ${errorName})\n\n`;
+
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        alertMsg += "カメラの使用が許可されていません。\n端末の [設定] > [ブラウザ] > [カメラ] から許可をオンにしてください。";
+      } else if (errorName === 'NotFoundError') {
+        alertMsg += "カメラが見つかりませんでした。";
+      } else if (errorName === 'NotReadableError') {
+        alertMsg += "カメラが他のアプリで使用されているか、一時的なエラーです。ブラウザを再起動してみてください。";
       } else {
-        message += `エラー詳細: ${err.message || err.name}`;
+        alertMsg += `詳細: ${errorMessage}`;
       }
-      alert(message);
+      alert(alertMsg);
     }
   };
 
@@ -67,6 +86,18 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       videoRef.current.srcObject = mediaStream;
       videoRef.current.onloadedmetadata = () => {
         videoRef.current?.play().catch(e => console.error("再生エラー:", e));
+
+        // フラッシュライト（トーチ）をオンにする試行
+        const track = mediaStream.getVideoTracks()[0];
+        if (track && track.getCapabilities) {
+          const capabilities = track.getCapabilities() as any; // anyキャストで回避
+          if (capabilities.torch) {
+            track.applyConstraints({
+              advanced: [{ torch: true } as any] // anyキャストで回避
+            }).catch(e => console.warn("ライトの点灯に失敗しました:", e));
+          }
+        }
+
         startAnalysis();
       };
     }
