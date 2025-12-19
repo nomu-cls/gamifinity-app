@@ -163,26 +163,26 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
     const width = canvas.width;
     const height = canvas.height;
-    // 最新100件程度のデータを使用
-    const dataLen = 150;
+    // 最新360フレーム（約6秒分）を表示＝ゆったり
+    const dataLen = 360;
     const data = brightnessData.current.slice(-dataLen);
 
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; // より明るく
-    ctx.lineWidth = 3; // 線を太く
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     if (data.length > 5) {
+      // オートゲイン（最小・最大に合わせてスケーリング）
       const min = Math.min(...data);
       const max = Math.max(...data);
       const range = max - min || 1;
 
-      // 上下を大きく使って描画（マージンを減らす）
       const points = data.map((val, i) => ({
         x: (i / (data.length - 1)) * width,
-        y: height - ((val - min) / range * height * 0.9 + height * 0.05) // 90%領域使用
+        y: height - ((val - min) / range * height * 0.8 + height * 0.1) // 80%領域
       }));
 
       ctx.moveTo(points[0].x, points[0].y);
@@ -207,6 +207,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     const duration = 30000;
 
     const analyze = () => {
+      // 途中でコンポーネントがアンマウントされていたら終了
       if (!videoRef.current || !canvasRef.current) return;
       const ctx = canvasRef.current.getContext('2d');
       if (!ctx) return;
@@ -215,14 +216,14 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const imageData = ctx.getImageData(0, 0, 100, 100);
       const data = imageData.data;
 
-      // 輝度取得
+      // 輝度取得 (Green成分も使うと感度が良い場合があるが、まずはRed)
       let rSum = 0;
       for (let i = 0; i < data.length; i += 4) rSum += data[i];
       const avgR = rSum / (data.length / 4);
 
-      // スムージング処理 (移動平均)
+      // スムージング処理 (移動平均 7フレーム)
       rawHistory.push(avgR);
-      if (rawHistory.length > 5) rawHistory.shift();
+      if (rawHistory.length > 7) rawHistory.shift();
       const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
 
       brightnessData.current.push(smoothedVal);
@@ -230,15 +231,15 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
       drawWaveform();
 
-      // ピーク検出（改良版: 感度調整）
-      if (brightnessData.current.length > 10) {
-        // ウインドウを少し狭めて反応速度を上げる (3フレーム前後と比較)
-        const currentIdx = brightnessData.current.length - 4;
+      // ピーク検出（改良版: ウインドウを広げる）
+      if (brightnessData.current.length > 15) {
+        // 7フレーム前を判定基準にする
+        const currentIdx = brightnessData.current.length - 8;
         const val = brightnessData.current[currentIdx];
 
         let isPeak = true;
-        // 前後3フレームで極大値かチェック
-        for (let i = 1; i <= 3; i++) {
+        // 前後6フレームと比較（ノイズ除去強化）
+        for (let i = 1; i <= 6; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
@@ -248,20 +249,30 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
         if (isPeak) {
           const now = Date.now();
           const interval = now - lastHeartBeat.current;
-          // BPM 40-200まで許容
-          if (interval > 300 && interval < 1500) {
-            rrIntervals.current.push(interval);
-            lastHeartBeat.current = now;
 
-            // 直近3回の平均でBPM表示
-            if (rrIntervals.current.length >= 2) {
-              const last3 = rrIntervals.current.slice(-3);
-              const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
-              setBpm(Math.round(60000 / avgInterval));
+          // BPM 40-180 (333ms - 1500ms)
+          if (interval > 330 && interval < 1500) {
+            // 前回のインターバルと大きく乖離していないかチェック（不整脈ノイズ除去）
+            // 初回取得時は無条件、2回目以降は±30%以内なら採用するなど
+            if (rrIntervals.current.length === 0 ||
+              (interval < rrIntervals.current[rrIntervals.current.length - 1] * 1.5 &&
+                interval > rrIntervals.current[rrIntervals.current.length - 1] * 0.6)) {
+
+              rrIntervals.current.push(interval);
+              lastHeartBeat.current = now;
+
+              // BPM表示 (直近3回の平均)
+              if (rrIntervals.current.length >= 2) {
+                const last3 = rrIntervals.current.slice(-3);
+                const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
+                setBpm(Math.round(60000 / avgInterval));
+              }
             }
           }
-          // 初回または時間が空きすぎた場合のリセット
-          if (interval > 1500) lastHeartBeat.current = now;
+          // 時間が空きすぎた場合はリセット（指を離したなど）
+          if (interval > 1500) {
+            lastHeartBeat.current = now - 800; // ダミーの最終時刻を入れて次の復帰を早める
+          }
         }
       }
 
