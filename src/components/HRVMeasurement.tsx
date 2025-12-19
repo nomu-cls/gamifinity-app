@@ -126,8 +126,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const avgG = gSum / pixels;
       const avgB = bSum / pixels;
 
-      // 赤色が支配的か判定
-      const isRed = avgR > 100 && avgR > avgG * 1.5 && avgR > avgB * 1.5;
+      // 赤色が支配的か判定 (閾値を緩和: 100->60, 1.5倍->1.2倍)
+      // 暗すぎる場合(avgR < 40)は指当ててないかライトなしと判定
+      const isBrightEnough = avgR > 40;
+      const isRed = isBrightEnough && avgR > avgG * 1.2 && avgR > avgB * 1.2;
 
       setIsSignalGood(isRed);
 
@@ -231,15 +233,15 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
       drawWaveform();
 
-      // ピーク検出（改良版: ウインドウを広げる）
+      // ピーク検出（再調整版: ウインドウを少し狭めて検出漏れを防ぐ）
       if (brightnessData.current.length > 15) {
-        // 7フレーム前を判定基準にする
-        const currentIdx = brightnessData.current.length - 8;
+        // 5フレーム前を判定基準にする (以前は8)
+        const currentIdx = brightnessData.current.length - 6;
         const val = brightnessData.current[currentIdx];
 
         let isPeak = true;
-        // 前後6フレームと比較（ノイズ除去強化）
-        for (let i = 1; i <= 6; i++) {
+        // 前後4フレームと比較（±0.06秒程度）
+        for (let i = 1; i <= 4; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
@@ -252,11 +254,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
           // BPM 40-180 (333ms - 1500ms)
           if (interval > 330 && interval < 1500) {
-            // 前回のインターバルと大きく乖離していないかチェック（不整脈ノイズ除去）
-            // 初回取得時は無条件、2回目以降は±30%以内なら採用するなど
+            // 前回のインターバルと大きく乖離していないかチェック
             if (rrIntervals.current.length === 0 ||
-              (interval < rrIntervals.current[rrIntervals.current.length - 1] * 1.5 &&
-                interval > rrIntervals.current[rrIntervals.current.length - 1] * 0.6)) {
+              (interval < rrIntervals.current[rrIntervals.current.length - 1] * 1.6 && // 許容範囲を少し広げる
+                interval > rrIntervals.current[rrIntervals.current.length - 1] * 0.5)) {
 
               rrIntervals.current.push(interval);
               lastHeartBeat.current = now;
@@ -269,9 +270,9 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
               }
             }
           }
-          // 時間が空きすぎた場合はリセット（指を離したなど）
+          // 時間が空きすぎた場合はリセット
           if (interval > 1500) {
-            lastHeartBeat.current = now - 800; // ダミーの最終時刻を入れて次の復帰を早める
+            lastHeartBeat.current = now; // ダミー時刻セットはやめて現在時刻にリセット
           }
         }
       }
@@ -397,8 +398,13 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
                   <div className="text-white font-bold">{readyCountdown}秒後にスタート</div>
                 </div>
               ) : (
-                <div className="text-white/60 text-sm bg-white/10 px-6 py-3 rounded-full">
-                  カメラ全体を指で覆ってください
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-white/80 text-sm bg-white/10 px-6 py-3 rounded-full animate-bounce">
+                    ☝️ カメラ全体を指で覆ってください
+                  </div>
+                  <p className="text-white/50 text-xs">
+                    (画面が赤くなるように位置を調整)
+                  </p>
                 </div>
               )}
             </div>
