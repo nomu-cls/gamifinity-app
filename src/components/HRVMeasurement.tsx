@@ -400,7 +400,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
         {phase === 'measuring' && (
           <div className="flex flex-col items-center justify-between h-full w-full py-16 px-6 animate-in fade-in duration-700">
             {/* プレビュー (小さく表示) */}
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/30 bg-black mb-4 shadow-lg">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white/30 bg-black mb-4 shadow-lg">
               <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover opacity-80" />
             </div>
 
