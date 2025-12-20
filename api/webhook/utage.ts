@@ -29,42 +29,59 @@ export default async function handler(req: Request) {
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // 2. Parse payload
-        // Mapping:
-        // %name% -> name
-        // %email% -> mail
-        // %event_item01% -> user_id (Key)
-        // %event_schedule% -> event_schedule
-        // %event_url% -> event_url
-        // %event_password% -> event_password
-        // %event_schedule_change_url% -> datechangepage
-        const body = await req.json();
-        const {
-            name,
-            mail,
-            user_id, // Standard mapping
-            event_item01, // Raw UTAGE field
-            event_schedule,
-            event_url,
-            event_password,
-            datechangepage
-        } = body;
+        // 1. Log Headers & Method for debugging
+        const method = req.method;
+        const headers = Object.fromEntries(req.headers.entries());
+        console.log('Webhook Request:', { method, headers });
 
-        // Use event_item01 as user_id if user_id is missing
-        const targetUserId = user_id || event_item01;
+        if (method !== 'POST') {
+            return new Response('Method Not Allowed', { status: 405 });
+        }
 
-        console.log('UTAGE Webhook received:', { user_id: targetUserId, mail, name });
+        // 2. Read Raw Text (to catch non-JSON payloads)
+        const rawBody = await req.text();
+        console.log('Raw Body:', rawBody);
 
-        // LOGGING: Save raw payload to DB for debugging
+        let body;
+        try {
+            // Try parsing JSON
+            body = JSON.parse(rawBody);
+        } catch (e) {
+            // If JSON parse fails, maybe it's URL-encoded form data?
+            // Simple fallback parsing for x-www-form-urlencoded
+            try {
+                const params = new URLSearchParams(rawBody);
+                body = Object.fromEntries(params.entries());
+                console.log('Parsed as Form Data:', body);
+            } catch (formError) {
+                console.error('Failed to parse body:', e);
+                body = {};
+            }
+        }
+
+        // LOGGING: Save raw payload to DB
         try {
             await supabase.from('webhook_logs').insert({
-                payload: body,
+                payload: { headers, rawBody, parsed: body }, // Store everything
                 error_message: null
             });
         } catch (logError) {
             console.error('Failed to log webhook payload:', logError);
-            // Non-blocking
         }
+
+        const {
+            user_id,
+            name,
+            mail,
+            event_schedule,
+            event_url,
+            event_password,
+            datechangepage, // This is the reschedule URL from UTAGE
+            event_item01 // Custom field often used for Line User ID
+        } = body;
+
+        // Use event_item01 as user_id if user_id is missing
+        const targetUserId = user_id || event_item01;
 
         // 3. Validate
         if (!targetUserId && !mail) {
