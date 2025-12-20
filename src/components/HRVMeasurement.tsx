@@ -48,17 +48,25 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     try {
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+        // マクロ切り替え防止のために focusMode: 'fixed' を試みる
+        const constraints: any = {
+          video: {
+            facingMode: 'environment',
+            // width/heightを小さく指定して高画質レンズへの切り替えを抑制する試み
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            advanced: [{ focusMode: 'fixed' }]
+          },
           audio: false
-        });
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (e) {
         console.warn("背面カメラ失敗、標準カメラで試行:", e);
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
 
       setMediaStream(stream);
-      setPhase('check'); // まずチェックフェーズへ
+      setPhase('check');
     } catch (err: any) {
       console.error("カメラ起動失敗:", err);
       alert("カメラが起動できませんでした。\n" + err.name);
@@ -77,7 +85,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
         if (track && track.getCapabilities) {
           const capabilities = track.getCapabilities() as any;
           if (capabilities.torch) {
-            track.applyConstraints({ advanced: [{ torch: true } as any] })
+            track.applyConstraints({ advanced: [{ torch: true }] } as any)
               .catch(e => console.warn("ライト点灯失敗:", e));
           }
         }
@@ -91,7 +99,6 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
   // クリーンアップ
   useEffect(() => {
     return () => {
-      // mediaStreamは意図的に維持（遷移でカメラを切らないため）
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, []);
@@ -126,9 +133,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const avgG = gSum / pixels;
       const avgB = bSum / pixels;
 
-      // 赤色が支配的か判定 (閾値を緩和: 100->60, 1.5倍->1.2倍)
-      // 暗すぎる場合(avgR < 40)は指当ててないかライトなしと判定
-      const isBrightEnough = avgR > 40;
+      // 赤色が支配的か判定 (閾値: avgR > 50, 倍率1.2)
+      const isBrightEnough = avgR > 50;
       const isRed = isBrightEnough && avgR > avgG * 1.2 && avgR > avgB * 1.2;
 
       setIsSignalGood(isRed);
@@ -165,7 +171,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
     const width = canvas.width;
     const height = canvas.height;
-    // 最新360フレーム（約6秒分）を表示＝ゆったり
+    // 最新360フレーム（約6秒分）を表示
     const dataLen = 360;
     const data = brightnessData.current.slice(-dataLen);
 
@@ -177,14 +183,14 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
     ctx.lineJoin = 'round';
 
     if (data.length > 5) {
-      // オートゲイン（最小・最大に合わせてスケーリング）
+      // オートゲイン
       const min = Math.min(...data);
       const max = Math.max(...data);
       const range = max - min || 1;
 
       const points = data.map((val, i) => ({
         x: (i / (data.length - 1)) * width,
-        y: height - ((val - min) / range * height * 0.8 + height * 0.1) // 80%領域
+        y: height - ((val - min) / range * height * 0.8 + height * 0.1)
       }));
 
       ctx.moveTo(points[0].x, points[0].y);
@@ -218,38 +224,30 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const imageData = ctx.getImageData(0, 0, 100, 100);
       const data = imageData.data;
 
-      // 輝度取得
-      // 【重要変更】Redは飽和(255張り付き)しやすいため、Green成分を使用する
-      let gSum = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        gSum += data[i + 1]; // Green
-      }
-      const avgG = gSum / (data.length / 4);
+      // 輝度取得: 赤色成分に戻す
+      let rSum = 0;
+      for (let i = 0; i < data.length; i += 4) rSum += data[i];
+      const avgR = rSum / (data.length / 4);
 
-      // スムージング処理 (移動平均 5フレーム: 追従性向上)
-      rawHistory.push(avgG);
+      // スムージング処理 (移動平均 5フレーム)
+      rawHistory.push(avgR);
       if (rawHistory.length > 5) rawHistory.shift();
       const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
-
-      // 反転させる（吸光度変化なので、血液が多い＝暗くなる＝値が下がる。ピーク検出のためには反転が扱いやすいがそのままでも可）
-      // ここではそのまま扱い、谷（Valley）ではなく山（Peak）を検出するロジックなので、
-      // 血流増＝暗＝値下がる＝谷。 血流減＝明＝値上がる＝山。
-      // 脈拍としてのリズムは同じなのでそのまま使う。
 
       brightnessData.current.push(smoothedVal);
       if (brightnessData.current.length > 1000) brightnessData.current.shift();
 
       drawWaveform();
 
-      // ピーク検出（Green用チューニング）
+      // ピーク検出
       if (brightnessData.current.length > 15) {
-        // 4フレーム前を判定基準にする
-        const currentIdx = brightnessData.current.length - 5;
+        // 5フレーム前を判定基準にする
+        const currentIdx = brightnessData.current.length - 6;
         const val = brightnessData.current[currentIdx];
 
         let isPeak = true;
-        // 前後3フレームと比較（±0.05秒程度）
-        for (let i = 1; i <= 3; i++) {
+        // 前後4フレームと比較
+        for (let i = 1; i <= 4; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
@@ -260,14 +258,13 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
           const now = Date.now();
           const interval = now - lastHeartBeat.current;
 
-          // BPM 40-180 (333ms - 1500ms)
           // BPM 37-200 (300ms - 1600ms)
           if (interval > 300 && interval < 1600) {
-            // 厳しいフィルタを全撤廃。範囲内ならすべて採用する
+            // 範囲内ならすべて採用する
             rrIntervals.current.push(interval);
             lastHeartBeat.current = now;
 
-            // BPM表示 (直近3回の平均)
+            // 直近3回の平均でBPM表示
             if (rrIntervals.current.length >= 2) {
               const last3 = rrIntervals.current.slice(-3);
               const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
@@ -304,8 +301,9 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
   const processResults = async () => {
     setPhase('analyzing');
-    if (rrIntervals.current.length < 5) {
-      alert("計測データが不足しています。\nもう一度、リラックスして指を当ててください。");
+    // 閾値を大幅緩和: 2回でも取れればOKとする
+    if (rrIntervals.current.length < 2) {
+      alert("計測データが不足しています。\n(ヒント: カメラが切り替わる場合は、指を少しずらして光るレンズを探してください)");
       setPhase('intro');
       return;
     }
@@ -455,7 +453,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
             <div className="text-white/90 text-sm text-center font-medium">
               {getGreeting()}<br />
-              調子はいかがでしょうか😌
+              調子はいかがでしょうか😌<br />
+              <span className="text-xs text-white/50">※カメラが変わる場合は指をずらしてください</span>
             </div>
 
             {/* 解析用隠しキャンバス (これがないとループが止まる) */}
