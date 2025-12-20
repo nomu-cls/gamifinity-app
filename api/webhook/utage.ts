@@ -93,9 +93,9 @@ export default async function handler(req: Request) {
         }
 
         // 4. Update Logic
-        const updateData = {
+        const updateData: any = {
             name: name,
-            email: mail,
+            // email: mail, // Do not blindly update email (see check below)
             is_session_booked: true,
             booked_at: new Date().toISOString(),
             // Custom fields
@@ -105,8 +105,9 @@ export default async function handler(req: Request) {
             datechangepage
         };
 
-        if (mail) {
-            Object.assign(updateData, { email: mail });
+        // Only update email if it is present and NOT a placeholder (e.g. %email%)
+        if (mail && typeof mail === 'string' && mail.length > 0 && !mail.includes('%')) {
+            updateData.email = mail;
         }
 
         let updatedUsers: any[] = [];
