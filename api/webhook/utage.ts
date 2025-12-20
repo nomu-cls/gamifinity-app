@@ -1,5 +1,4 @@
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { createClient } from '@supabase/supabase-js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -7,8 +6,11 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info',
 };
 
-Deno.serve(async (req: Request) => {
-    // Handle CORS
+export const config = {
+    runtime: 'edge', // Using Edge Runtime for better performance/similarity to Supabase Functions
+};
+
+export default async function handler(req: Request) {
     if (req.method === 'OPTIONS') {
         return new Response(null, {
             status: 200,
@@ -17,8 +19,8 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL');
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const supabaseUrl = process.env.VITE_SUPABASE_URL;
+        const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY; // Use Anon Key for public webhook if strict security isn't possible, or Service Role Key if available in env
 
         if (!supabaseUrl || !supabaseKey) {
             throw new Error('Missing Supabase environment variables');
@@ -26,7 +28,6 @@ Deno.serve(async (req: Request) => {
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // Expected payload: { client_id: "line_user_id_here", email: "...", ... }
         const { client_id, email, ...rest } = await req.json();
 
         console.log('UTAGE Webhook received:', { client_id, email, rest });
@@ -55,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
         // Fallback to email if client_id failed or missing
         if (email) {
-            // Reset query as it's immutable-ish in builder pattern? No, need fresh query
+            // Need fresh query builder instance for second attempt
             const { data, error } = await supabase.from('user_stories')
                 .update({
                     is_session_booked: true,
@@ -78,11 +79,11 @@ Deno.serve(async (req: Request) => {
             status: 404,
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error in utage-webhook:', error);
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         });
     }
-});
+}

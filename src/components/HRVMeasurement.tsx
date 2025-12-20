@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // ステートの定義
 type Phase = 'intro' | 'q1' | 'q2' | 'q3' | 'calculating' | 'result';
@@ -11,11 +11,19 @@ interface Props {
   brainType?: string; // e.g. 'Sora', 'Shin'
 }
 
-export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType = 'UNKNOWN' }) => {
+export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType = 'UNKNOWN', lineUserId }) => {
   const [phase, setPhase] = useState<Phase>('intro');
   const [scores, setScores] = useState({ body: 3, mind: 3, passion: 3 });
   const [totalScore, setTotalScore] = useState(0);
   const [adviceState, setAdviceState] = useState({ title: '', message: '', type: '' });
+  const [prevScore, setPrevScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('last_checkin_score');
+    if (saved) {
+      setPrevScore(parseInt(saved, 10));
+    }
+  }, []);
 
   // 質問データ
   const questions = {
@@ -86,7 +94,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
       } else if (finalScore >= 60) {
         resultType = 'CREATIVE';
         title = 'クリエイティブ・ゾーン';
-        msg = "良好なバランスです！LPの執筆や『シン』の仕組み作りなど、形にする作業に最適。一気に進めましょう。";
+        msg = "良好なバランスです！未来を描く作業や、仕組み作りなど、形にする作業に最適。一気に進めましょう。";
       } else if (finalScore >= 40) {
         resultType = 'MAINTENANCE';
         title = '安定・メンテナンス';
@@ -98,6 +106,10 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
       }
 
       setAdviceState({ title, message: msg, type: resultType });
+
+      // Save current score
+      localStorage.setItem('last_checkin_score', finalScore.toString());
+
       if (onComplete) onComplete({ score: finalScore, type: resultType, detail: scores }, msg);
       setPhase('result');
     }, 1500); // 計算演出時間
@@ -130,10 +142,16 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">1分セルフチェック</h2>
             <p className="text-gray-600 mb-8 leading-relaxed text-sm">
-              今のあなたの<br />
               「身体・心・情熱」の状態を<br />
               直感でチェックしてみましょう。
             </p>
+
+            {prevScore !== null && (
+              <div className="mb-8 flex items-center justify-center gap-2 text-gray-400">
+                <span className="text-[10px] font-bold tracking-widest">PREVIOUS:</span>
+                <span className="text-lg font-bold">{prevScore}</span>
+              </div>
+            )}
             <button onClick={nextPhase} className="w-full bg-gray-900 text-white font-bold py-4 rounded-xl shadow-lg hover:scale-[1.02] transition-transform">
               はじめる
             </button>
@@ -200,7 +218,7 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
             <span className="text-xs font-bold text-gray-400 tracking-widest mb-2">DIAGNOSIS RESULT</span>
             <h2 className="text-3xl font-bold text-gray-900 mb-6">{adviceState.title}</h2>
 
-            <div className="relative w-40 h-40 flex items-center justify-center mb-8">
+            <div className="relative w-40 h-40 flex items-center justify-center mb-4">
               <svg className="absolute w-full h-full transform -rotate-90">
                 <circle cx="80" cy="80" r="70" stroke="#f3f4f6" strokeWidth="8" fill="none" />
                 <circle cx="80" cy="80" r="70" stroke="url(#gradient)" strokeWidth="8" fill="none"
@@ -222,12 +240,26 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
               </div>
             </div>
 
+            {prevScore !== null && (
+              <div className="mb-6 flex items-center gap-2 text-sm text-gray-500 bg-white/50 px-4 py-2 rounded-full backdrop-blur-sm">
+                <span>前回: <span className="font-bold">{prevScore}</span></span>
+                <span className="text-gray-300">→</span>
+                <span>今回: <span className={`font-bold ${totalScore >= prevScore ? 'text-red-500' : 'text-blue-500'}`}>
+                  {totalScore}
+                  {totalScore > prevScore && ' ⤴'}
+                  {totalScore < prevScore && ' ⤵'}
+                </span></span>
+              </div>
+            )}
+
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full mb-6">
               <h4 className="text-sm font-bold text-gray-400 mb-3 border-b pb-2">Future Advice</h4>
               <p className="text-gray-700 leading-relaxed font-medium">
                 {adviceState.message}
               </p>
             </div>
+
+
 
             <div className="grid grid-cols-3 gap-2 w-full mb-6 text-center text-xs text-gray-500">
               <div className="bg-white p-2 rounded-lg border border-gray-100">
@@ -245,8 +277,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
             </div>
 
             <div className="mt-auto w-full space-y-3">
-              <button onClick={() => setPhase('intro')} className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors">
-                もう一度チェック
+              <button onClick={onClose} className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors">
+                ホームに戻る
               </button>
               <button onClick={onClose} className="w-full text-gray-400 text-xs hover:text-gray-600 py-2">
                 閉じる

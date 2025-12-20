@@ -45,6 +45,8 @@ export interface UserStory {
   day1_reward_viewed: boolean;
   day2_reward_viewed: boolean;
   day3_reward_viewed: boolean;
+  is_session_booked?: boolean;
+  booked_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +99,7 @@ export interface SiteSettings {
   banner_subtext?: string;
   banner_button_text?: string;
   banner_image_url?: string;
+  banner_link_url?: string;
   footer_line1?: string;
   footer_line2?: string;
   created_at: string;

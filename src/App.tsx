@@ -565,6 +565,7 @@ const App = () => {
     const [bannerSubtext, setBannerSubtext] = useState(siteSettings?.banner_subtext || 'あなたの魂を癒す「魔法のアファメーション」を贈ります。');
     const [bannerButtonText, setBannerButtonText] = useState(siteSettings?.banner_button_text || '物語の続きをセッションで描く');
     const [bannerImageUrl, setBannerImageUrl] = useState(siteSettings?.banner_image_url || '');
+    const [bannerLinkUrl, setBannerLinkUrl] = useState(siteSettings?.banner_link_url || '');
     const [isSavingBanner, setIsSavingBanner] = useState(false);
     const [bannerSaveMessage, setBannerSaveMessage] = useState('');
     const [isUploadingBanner, setIsUploadingBanner] = useState(false);
@@ -762,6 +763,7 @@ const App = () => {
           banner_subtext: bannerSubtext,
           banner_button_text: bannerButtonText,
           banner_image_url: bannerImageUrl,
+          banner_link_url: bannerLinkUrl,
           footer_line1: footerLine1,
           footer_line2: footerLine2,
         });
@@ -1259,6 +1261,8 @@ const App = () => {
                       />
                     </div>
 
+
+
                     <div>
                       <label className="block text-sm font-bold mb-2" style={{ color: colors.deepBrown }}>
                         ボタンテキスト
@@ -1271,6 +1275,23 @@ const App = () => {
                         placeholder="物語の続きをセッションで描く"
                         style={{ color: colors.deepBrown }}
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold mb-2" style={{ color: colors.deepBrown }}>
+                        個別セッションお申し込みURL
+                      </label>
+                      <input
+                        type="url"
+                        value={bannerLinkUrl}
+                        onChange={(e) => setBannerLinkUrl(e.target.value)}
+                        className="w-full p-3 rounded-xl border-2 border-white/50 text-sm outline-none"
+                        placeholder="https://utage-system.com/..."
+                        style={{ color: colors.deepBrown }}
+                      />
+                      <p className="text-xs mt-1 opacity-60" style={{ color: colors.deepBrown }}>
+                        ユーザーID（?custom_id=...）は自動で付与されます
+                      </p>
                     </div>
                   </div>
 
@@ -1349,7 +1370,7 @@ const App = () => {
             )}
           </div>
         </div>
-      </div>
+      </div >
     );
   };
 
@@ -2304,6 +2325,11 @@ const App = () => {
     ai_feedback: string;
     signal_quality: number;
     created_at: string;
+    checkin_score?: number;
+    body_score?: number;
+    mind_score?: number;
+    passion_score?: number;
+    checkin_type?: string;
   }
 
   const HealthMetricsView = () => {
@@ -3836,10 +3862,10 @@ const App = () => {
               </span>
             </div>
             <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
-              指先バイオリズム・チェック
+              ステート・チェックイン
             </h3>
-            <p className="text-xs opacity-70 mb-4" style={{ color: colors.deepBrown }}>
-              指先からあなたのステートを読み取り、無重力へのゲートを開きます。
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              今のあなたのステート（状態）をチェックし、最適な「未来設定」へのゲートを開きます。
             </p>
             <button
               onClick={() => setShowHRVMeasurement(true)}
@@ -3867,14 +3893,29 @@ const App = () => {
               {siteSettings?.banner_subtext || 'あなたの魂を癒す「魔法のアファメーション」を贈ります。'}
             </p>
             {!story.is_gift_sent && (
-              <button
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="w-full py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
-                style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
-              >
-                {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
-              </button>
+              <>
+                {(!story.is_gift_sent && siteSettings?.banner_link_url) ? (
+                  <a
+                    href={`${siteSettings.banner_link_url}${siteSettings.banner_link_url.includes('?') ? '&' : '?'}custom_id=${userData?.line_user_id || ''}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full block text-center py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                    style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
+                  >
+                    {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="w-full py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                    style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
+                  >
+                    {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
+                  </button>
+                )}
+              </>
             )}
+
           </div>
         </div>
 
@@ -4918,9 +4959,32 @@ const App = () => {
           lineUserId={userData?.line_user_id || story.email || story.id}
           brainType={userData?.brain_type || undefined}
           onClose={() => setShowHRVMeasurement(false)}
-          onComplete={(metrics, feedback) => {
+          onComplete={async (metrics, feedback) => {
             console.log('HRV Measurement completed:', metrics, feedback);
-            setShowHRVMeasurement(false);
+            // Save to Supabase
+            try {
+              await supabase.from('health_metrics').insert({
+                line_user_id: userData?.line_user_id || story.id,
+                checkin_score: metrics.score,
+                body_score: metrics.detail.body,
+                mind_score: metrics.detail.mind,
+                passion_score: metrics.detail.passion,
+                checkin_type: metrics.type,
+                ai_feedback: feedback,
+                // Legacy / Required placeholder fields
+                heart_rate: 0,
+                hrv_sdnn: 0,
+                hrv_rmssd: 0,
+                stress_level: metrics.type, // Store type here too as fallback or filter
+                autonomic_balance: 'BALANCE', // Dummy
+                brain_type: '',
+                signal_quality: 100
+              });
+              console.log('Saved check-in result to health_metrics');
+            } catch (e) {
+              console.error('Error saving check-in result:', e);
+            }
+            // setShowHRVMeasurement(false); // Keep open to show result
           }}
         />
       )}
