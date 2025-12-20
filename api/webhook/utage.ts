@@ -61,34 +61,12 @@ export default async function handler(req: Request) {
             });
         }
 
-        // 4. Update (Upsert) Logic
-        // We only update if user exists. If not, we log.
-        // Or if requirement is to INSERT new user, we'd use upsert. 
-        // Instruction says "update existing user DB info".
-
+        // 4. Update Logic
         const updateData = {
             name: name,
-            email: mail, // Mapping 'mail' to 'email' column (assuming standard) or 'mail' column? App.tsx uses 'email'. User asked for 'mail'. I will try to support both or stick to user instruction if DB column matches.
-            // Converting 'mail' from payload to 'email' in DB if that's the convention, 
-            // BUT user said: "%email% => mail". I should check if DB has 'mail' or 'email'.
-            // App.tsx line 388 uses `email`. I will map payload `mail` to DB `email` to be safe/standard, 
-            // or should I trust the user's "mail" key?
-            // User said: "Receiver Parameter Name: mail". 
-            // If DB column is 'email', I should map `mail` -> `email`.
-            // Let's assume the payload field is `mail` (as requested) and DB column is `email` (standard).
-            // Actually, let's just save what we have.
-            // Note: App.tsx uses `email`. I will map `mail` (from input) to `email` (DB).
-
-            // Wait, strict mapping request:
-            // %email% => mail (Parameter Name)
-            // So input body has `mail`.
-
-            // DB Columns (inferred):
-            // name, email (likely), event_schedule, event_url, event_password, datechangepage
-
+            email: mail,
             is_session_booked: true,
             booked_at: new Date().toISOString(),
-
             // Custom fields
             event_schedule,
             event_url,
@@ -96,40 +74,55 @@ export default async function handler(req: Request) {
             datechangepage
         };
 
-        // handle mapping "mail" -> "email" for DB if valid, otherwise keep as is?
-        // Safest is to use the existing 'email' column for the email address.
         if (mail) {
             Object.assign(updateData, { email: mail });
         }
 
-        const { data, error } = await supabase
-            .from('user_stories')
-            .update(updateData)
-            .eq('line_user_id', user_id) // Matching user_id (from UTAGE %event_item01%) to line_user_id
-            .select();
+        let updatedUsers: any[] = [];
 
-        if (error) {
-            throw error;
+        // Strategy 1: Try by user_id (line_user_id) if present
+        if (user_id) {
+            const { data, error } = await supabase
+                .from('user_stories')
+                .update(updateData)
+                .eq('line_user_id', user_id)
+                .select();
+
+            if (error) throw error;
+            if (data) updatedUsers = data;
         }
 
-        if (!data || data.length === 0) {
-            console.warn(`User not found for user_id: ${user_id}`);
+        // Strategy 2: If no user updated by ID (or ID missing), try by Email
+        if ((!updatedUsers || updatedUsers.length === 0) && mail) {
+            console.log(`User not found by ID (${user_id}) or ID missing. Trying by Email (${mail})...`);
+            const { data, error } = await supabase
+                .from('user_stories')
+                .update(updateData)
+                .eq('email', mail)
+                .select();
+
+            if (error) throw error;
+            if (data) updatedUsers = data;
+        }
+
+        if (!updatedUsers || updatedUsers.length === 0) {
+            console.warn(`User not found for user_id: ${user_id} or email: ${mail}`);
             return new Response(JSON.stringify({ success: false, message: 'User not found, but processed' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
             });
         }
 
-        console.log('User updated successfully:', data[0].id);
+        console.log('User updated successfully:', updatedUsers[0].id);
 
-        return new Response(JSON.stringify({ success: true, count: data.length }), {
+        return new Response(JSON.stringify({ success: true, count: updatedUsers.length }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
 
     } catch (error: any) {
         console.error('Error in utage-webhook:', error);
-        // Always return 200 to UTAGE to prevent retries on logic errors, unless transient
+        // Always return 200 to UTAGE
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
