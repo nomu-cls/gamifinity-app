@@ -229,8 +229,13 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       for (let i = 0; i < data.length; i += 4) rSum += data[i];
       const avgR = rSum / (data.length / 4);
 
+      // 【重要改善】吸光度変化なので、血液が多い(脈打ち)＝暗くなる。
+      // これを「山」として検出するために反転させる (255 - avgR)
+      // これにより、鋭い「脈の立ち上がり」をピークとして捉えやすくなる
+      const invertedVal = 255 - avgR;
+
       // スムージング処理 (移動平均 5フレーム)
-      rawHistory.push(avgR);
+      rawHistory.push(invertedVal);
       if (rawHistory.length > 5) rawHistory.shift();
       const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
 
@@ -301,8 +306,8 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
   const processResults = async () => {
     setPhase('analyzing');
-    // 閾値を大幅緩和: 2回でも取れればOKとする
-    if (rrIntervals.current.length < 2) {
+    // 閾値を大幅緩和: 1回でもインターバル(2拍)が取れればOKとする
+    if (rrIntervals.current.length === 0) {
       alert("計測データが不足しています。\n(ヒント: カメラが切り替わる場合は、指を少しずらして光るレンズを探してください)");
       setPhase('intro');
       return;
