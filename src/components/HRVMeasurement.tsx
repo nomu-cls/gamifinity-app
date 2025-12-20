@@ -218,30 +218,38 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
       const imageData = ctx.getImageData(0, 0, 100, 100);
       const data = imageData.data;
 
-      // 輝度取得 (Green成分も使うと感度が良い場合があるが、まずはRed)
-      let rSum = 0;
-      for (let i = 0; i < data.length; i += 4) rSum += data[i];
-      const avgR = rSum / (data.length / 4);
+      // 輝度取得
+      // 【重要変更】Redは飽和(255張り付き)しやすいため、Green成分を使用する
+      let gSum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        gSum += data[i + 1]; // Green
+      }
+      const avgG = gSum / (data.length / 4);
 
-      // スムージング処理 (移動平均 7フレーム)
-      rawHistory.push(avgR);
-      if (rawHistory.length > 7) rawHistory.shift();
+      // スムージング処理 (移動平均 5フレーム: 追従性向上)
+      rawHistory.push(avgG);
+      if (rawHistory.length > 5) rawHistory.shift();
       const smoothedVal = rawHistory.reduce((a, b) => a + b, 0) / rawHistory.length;
+
+      // 反転させる（吸光度変化なので、血液が多い＝暗くなる＝値が下がる。ピーク検出のためには反転が扱いやすいがそのままでも可）
+      // ここではそのまま扱い、谷（Valley）ではなく山（Peak）を検出するロジックなので、
+      // 血流増＝暗＝値下がる＝谷。 血流減＝明＝値上がる＝山。
+      // 脈拍としてのリズムは同じなのでそのまま使う。
 
       brightnessData.current.push(smoothedVal);
       if (brightnessData.current.length > 1000) brightnessData.current.shift();
 
       drawWaveform();
 
-      // ピーク検出（再調整版: ウインドウを少し狭めて検出漏れを防ぐ）
+      // ピーク検出（Green用チューニング）
       if (brightnessData.current.length > 15) {
-        // 5フレーム前を判定基準にする (以前は8)
-        const currentIdx = brightnessData.current.length - 6;
+        // 4フレーム前を判定基準にする
+        const currentIdx = brightnessData.current.length - 5;
         const val = brightnessData.current[currentIdx];
 
         let isPeak = true;
-        // 前後4フレームと比較（±0.06秒程度）
-        for (let i = 1; i <= 4; i++) {
+        // 前後3フレームと比較（±0.05秒程度）
+        for (let i = 1; i <= 3; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
