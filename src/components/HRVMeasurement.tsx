@@ -244,15 +244,15 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
       drawWaveform();
 
-      // ピーク検出
+      // ピーク検出 (超高感度化: ウィンドウをさらに狭める)
       if (brightnessData.current.length > 15) {
         // 5フレーム前を判定基準にする
         const currentIdx = brightnessData.current.length - 6;
         const val = brightnessData.current[currentIdx];
 
         let isPeak = true;
-        // 前後4フレームと比較
-        for (let i = 1; i <= 4; i++) {
+        // 前後1フレームと比較 (わずかな山でも検出)
+        for (let i = 1; i <= 1; i++) {
           if (val <= brightnessData.current[currentIdx - i] || val <= brightnessData.current[currentIdx + i]) {
             isPeak = false;
             break;
@@ -263,21 +263,19 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
           const now = Date.now();
           const interval = now - lastHeartBeat.current;
 
-          // BPM 37-200 (300ms - 1600ms)
-          if (interval > 300 && interval < 1600) {
-            // 範囲内ならすべて採用する
+          // BPM 30-220 (270ms - 2000ms) ノイズ込みで広めに取る
+          if (interval > 270 && interval < 2000) {
             rrIntervals.current.push(interval);
             lastHeartBeat.current = now;
 
-            // 直近3回の平均でBPM表示
             if (rrIntervals.current.length >= 2) {
               const last3 = rrIntervals.current.slice(-3);
               const avgInterval = last3.reduce((a, b) => a + b, 0) / last3.length;
               setBpm(Math.round(60000 / avgInterval));
             }
           }
-          // 時間が空きすぎた場合はリセット
-          if (interval > 1600) {
+          // リセット
+          if (interval > 2000) {
             lastHeartBeat.current = now;
           }
         }
@@ -306,212 +304,201 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete }) => {
 
   const processResults = async () => {
     setPhase('analyzing');
-    // 閾値を大幅緩和: 1回でもインターバル(2拍)が取れればOKとする
-    if (rrIntervals.current.length === 0) {
-      alert("計測データが不足しています。\n(ヒント: カメラが切り替わる場合は、指を少しずらして光るレンズを探してください)");
-      setPhase('intro');
-      return;
-    }
+  }
+  const rmssd = Math.sqrt(diffs.reduce((a, b) => a + b, 0) / diffs.length);
+  const calculatedHrvScore = Math.min(Math.round(rmssd), 100);
+  const calculatedBpm = Math.round(60000 / (rrIntervals.current.reduce((a, b) => a + b, 0) / rrIntervals.current.length));
 
-    // RMSSD計算
-    const diffs = [];
-    for (let i = 0; i < rrIntervals.current.length - 1; i++) {
-      diffs.push(Math.pow(rrIntervals.current[i + 1] - rrIntervals.current[i], 2));
-    }
-    const rmssd = Math.sqrt(diffs.reduce((a, b) => a + b, 0) / diffs.length);
-    const calculatedHrvScore = Math.min(Math.round(rmssd), 100);
-    const calculatedBpm = Math.round(60000 / (rrIntervals.current.reduce((a, b) => a + b, 0) / rrIntervals.current.length));
+  setHrvScore(calculatedHrvScore);
+  setBpm(calculatedBpm);
 
-    setHrvScore(calculatedHrvScore);
-    setBpm(calculatedBpm);
+  const isCoach = rmssd >= 40;
+  const newState = isCoach ? 'COACH' : 'CLASH';
+  setState(newState);
 
-    const isCoach = rmssd >= 40;
-    const newState = isCoach ? 'COACH' : 'CLASH';
-    setState(newState);
+  const feedbackText = isCoach
+    ? "完璧な『凪』の状態です。無重力フライトの準備が整いました。あなたの直感に従って、未来を選択してください。"
+    : "脳内渋滞（重力）を検知しました。マモルが安全を守るために必死にブレーキを踏んでいます。まずは5分間、Dream Makerに任せて深呼吸しましょう。";
+  setFeedback(feedbackText);
+  if (onComplete) onComplete({ hrv: calculatedHrvScore, bpm: calculatedBpm, state: newState }, feedbackText);
+  setPhase('result');
+};
 
-    const feedbackText = isCoach
-      ? "完璧な『凪』の状態です。無重力フライトの準備が整いました。あなたの直感に従って、未来を選択してください。"
-      : "脳内渋滞（重力）を検知しました。マモルが安全を守るために必死にブレーキを踏んでいます。まずは5分間、Dream Makerに任せて深呼吸しましょう。";
-    setFeedback(feedbackText);
-    if (onComplete) onComplete({ hrv: calculatedHrvScore, bpm: calculatedBpm, state: newState }, feedbackText);
-    setPhase('result');
-  };
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return "おはようございます、";
+  if (h >= 11 && h < 18) return "こんにちは、";
+  return "こんばんは、";
+};
 
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h >= 5 && h < 11) return "おはようございます、";
-    if (h >= 11 && h < 18) return "こんにちは、";
-    return "こんばんは、";
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
-      <div className={`w-full h-full sm:h-auto sm:max-w-md relative overflow-hidden flex flex-col items-center justify-center transition-all duration-500
+return (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+    <div className={`w-full h-full sm:h-auto sm:max-w-md relative overflow-hidden flex flex-col items-center justify-center transition-all duration-500
         ${(phase === 'measuring' || phase === 'check') ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-sage-50 sm:rounded-3xl p-6'}`}>
 
-        {onClose && phase !== 'measuring' && (
-          <button onClick={onClose} className="absolute top-6 right-6 z-10 text-sage-400 hover:text-sage-600 p-2 bg-white/50 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      {onClose && phase !== 'measuring' && (
+        <button onClick={onClose} className="absolute top-6 right-6 z-10 text-sage-400 hover:text-sage-600 p-2 bg-white/50 rounded-full">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      )}
+
+      {/* --- 導入画面 --- */}
+      {phase === 'intro' && (
+        <div className="text-center w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E11D48" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.28 3.6-2.34 3.6-4.44C22.6 7.16 20.8 5.5 18.6 5.5c-1.4 0-2.52.8-3.09 1.94-.57-1.14-1.69-1.94-3.09-1.94-2.2 0-4 1.66-4 4.06 0 2.1 2.11 3.16 3.6 4.44L12 21.35l7-7.35z"></path></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-4 text-sage-800">指先チェック</h2>
+          <p className="mb-8 text-sage-600 leading-relaxed">
+            カメラとライトを使って<br />
+            あなたのステートを測定します。
+          </p>
+          <button
+            onClick={startCamera}
+            className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold hover:shadow-lg hover:scale-[1.02] transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2"
+          >
+            計測を始める
           </button>
-        )}
+          <p className="mt-4 text-xs text-sage-400">※ カメラの使用を許可してください</p>
+        </div>
+      )}
 
-        {/* --- 導入画面 --- */}
-        {phase === 'intro' && (
-          <div className="text-center w-full max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E11D48" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.28 3.6-2.34 3.6-4.44C22.6 7.16 20.8 5.5 18.6 5.5c-1.4 0-2.52.8-3.09 1.94-.57-1.14-1.69-1.94-3.09-1.94-2.2 0-4 1.66-4 4.06 0 2.1 2.11 3.16 3.6 4.44L12 21.35l7-7.35z"></path></svg>
+      {/* --- チェック（準備）画面 --- */}
+      {phase === 'check' && (
+        <div className="flex flex-col items-center justify-center h-full w-full py-10 px-6 animate-in fade-in duration-500">
+          <h2 className="text-xl font-bold text-white mb-2">準備しましょう</h2>
+          <p className="text-white/80 text-sm mb-12 text-center leading-relaxed">
+            下図のように、カメラが<br />赤くなるよう指で覆ってください
+          </p>
+
+          <div className="flex justify-center gap-8 mb-16">
+            <div className="flex flex-col items-center gap-3">
+              <div className={`relative w-24 h-24 rounded-full overflow-hidden border-4 shadow-xl transition-all duration-300 ${isSignalGood ? 'border-emerald-400 scale-105' : 'border-white/50'}`}>
+                <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+              </div>
+              <span className="text-white text-xs font-bold tracking-wider">カメラ映像</span>
             </div>
-            <h2 className="text-2xl font-bold mb-4 text-sage-800">指先チェック</h2>
-            <p className="mb-8 text-sage-600 leading-relaxed">
-              カメラとライトを使って<br />
-              あなたのステートを測定します。
-            </p>
-            <button
-              onClick={startCamera}
-              className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white px-8 py-4 rounded-xl font-bold hover:shadow-lg hover:scale-[1.02] transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2"
-            >
-              計測を始める
-            </button>
-            <p className="mt-4 text-xs text-sage-400">※ カメラの使用を許可してください</p>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-white/50 shadow-xl"></div>
+              <span className="text-white text-xs font-bold tracking-wider">見本</span>
+            </div>
           </div>
-        )}
 
-        {/* --- チェック（準備）画面 --- */}
-        {phase === 'check' && (
-          <div className="flex flex-col items-center justify-center h-full w-full py-10 px-6 animate-in fade-in duration-500">
-            <h2 className="text-xl font-bold text-white mb-2">準備しましょう</h2>
-            <p className="text-white/80 text-sm mb-12 text-center leading-relaxed">
-              下図のように、カメラが<br />赤くなるよう指で覆ってください
-            </p>
-
-            <div className="flex justify-center gap-8 mb-16">
-              <div className="flex flex-col items-center gap-3">
-                <div className={`relative w-24 h-24 rounded-full overflow-hidden border-4 shadow-xl transition-all duration-300 ${isSignalGood ? 'border-emerald-400 scale-105' : 'border-white/50'}`}>
-                  <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-                </div>
-                <span className="text-white text-xs font-bold tracking-wider">カメラ映像</span>
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-white/50 shadow-xl"></div>
-                <span className="text-white text-xs font-bold tracking-wider">見本</span>
-              </div>
-            </div>
-
-            {/* 状態表示 */}
-            <div className="h-24 flex items-center justify-center w-full">
-              {isSignalGood ? (
-                <div className="text-center animate-pulse bg-emerald-500/20 px-8 py-4 rounded-2xl backdrop-blur-sm border border-emerald-500/30">
-                  <div className="text-4xl font-black text-white mb-1">OK!</div>
-                  <div className="text-white font-bold">{readyCountdown}秒後にスタート</div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="text-white/80 text-sm bg-white/10 px-6 py-3 rounded-full animate-bounce">
-                    ☝️ カメラ全体を指で覆ってください
-                  </div>
-                  <p className="text-white/50 text-xs">
-                    (画面が赤くなるように位置を調整)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <canvas ref={canvasRef} width="100" height="100" className="hidden" />
-          </div>
-        )}
-
-        {/* --- 計測中画面 --- */}
-        {phase === 'measuring' && (
-          <div className="flex flex-col items-center justify-between h-full w-full py-16 px-6 animate-in fade-in duration-700">
-            {/* プレビュー (小さく表示) */}
-            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white/30 bg-black mb-4 shadow-lg">
-              <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover opacity-80" />
-            </div>
-
-            <div className="text-center space-y-1 mb-6">
-              <h2 className="text-xl font-bold text-white tracking-widest">{phase === 'measuring' ? "計測中..." : "準備中..."}</h2>
-              <p className="text-white/60 text-xs">残り {remainingTime} 秒</p>
-            </div>
-
-            {/* プログレスリング & ハート */}
-            <div className="relative w-48 h-48 flex items-center justify-center mb-6">
-              <svg className="absolute w-full h-full transform -rotate-90">
-                <circle cx="96" cy="96" r="88" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="none" />
-                <circle cx="96" cy="96" r="88" stroke="white" strokeWidth="3" fill="none"
-                  strokeDasharray={2 * Math.PI * 88}
-                  strokeDashoffset={2 * Math.PI * 88 * ((100 - progress) / 100)}
-                  className="transition-all duration-100 ease-linear"
-                />
-              </svg>
-              <div className="animate-pulse duration-1000">
-                <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-              </div>
-              <div className="absolute top-1/2 mt-14 text-white font-bold text-xl">
-                {bpm > 0 ? bpm : '--'} <span className="text-xs font-normal">bpm</span>
-              </div>
-            </div>
-
-            <div className="w-full h-24 relative mb-4">
-              <canvas ref={waveformCanvasRef} width="300" height="100" className="w-full h-full" />
-              <div className="absolute bottom-0 left-0 w-full h-px bg-white/20"></div>
-            </div>
-
-            <div className="text-white/90 text-sm text-center font-medium">
-              {getGreeting()}<br />
-              調子はいかがでしょうか😌<br />
-              <span className="text-xs text-white/50">※カメラが変わる場合は指をずらしてください</span>
-            </div>
-
-            {/* 解析用隠しキャンバス (これがないとループが止まる) */}
-            <canvas ref={canvasRef} width="100" height="100" className="hidden" />
-          </div>
-        )}
-
-        {/* --- 結果画面 --- */}
-        {(phase === 'analyzing' || phase === 'result') && (
-          <div className={`w-full h-full flex flex-col items-center justify-center bg-sage-50 sm:rounded-3xl p-6 ${phase === 'analyzing' ? '' : 'animate-in zoom-in duration-500'}`}>
-            {phase === 'analyzing' ? (
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                <div className="text-xl font-bold text-sage-800">解析中...</div>
+          {/* 状態表示 */}
+          <div className="h-24 flex items-center justify-center w-full">
+            {isSignalGood ? (
+              <div className="text-center animate-pulse bg-emerald-500/20 px-8 py-4 rounded-2xl backdrop-blur-sm border border-emerald-500/30">
+                <div className="text-4xl font-black text-white mb-1">OK!</div>
+                <div className="text-white font-bold">{readyCountdown}秒後にスタート</div>
               </div>
             ) : (
-              <div className="text-center w-full max-w-xs">
-                <div className="mb-2">
-                  <span className="text-sage-500 text-sm font-bold tracking-widest">自律神経のスコア</span>
+              <div className="flex flex-col items-center gap-2">
+                <div className="text-white/80 text-sm bg-white/10 px-6 py-3 rounded-full animate-bounce">
+                  ☝️ カメラ全体を指で覆ってください
                 </div>
-                <div className="relative mb-6">
-                  <div className="text-8xl font-serif text-sage-900 leading-none">{hrvScore}</div>
-                  <div className={`font-bold flex items-center justify-center gap-1 mt-2 ${state === 'COACH' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                    <span>{state === 'COACH' ? '🥰' : '🤔'}</span>
-                    <span>{state === 'COACH' ? '絶好調ですね' : '少しお疲れのようです'}</span>
-                  </div>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-sage-100 mb-6 text-left">
-                  <div className="flex justify-between items-center mb-4 border-b border-sage-50 pb-4">
-                    <div>
-                      <div className="text-xs text-sage-400">心拍数</div>
-                      <div className="text-2xl font-bold text-sage-800">{bpm} <span className="text-sm font-normal">bpm</span></div>
-                    </div>
-                    <div className="h-8 w-px bg-sage-100"></div>
-                    <div>
-                      <div className="text-xs text-sage-400">自律神経バランス</div>
-                      <div className="text-2xl font-bold text-sage-800">{state}</div>
-                    </div>
-                  </div>
-                  <p className="text-sage-700 text-sm leading-relaxed">{feedback}</p>
-                </div>
-                <button onClick={() => setPhase('intro')} className="text-sage-500 font-bold text-sm hover:text-sage-700 transition-colors">
-                  もう一度測定
-                </button>
-                <button onClick={onClose} className="mt-4 text-xs text-sage-400 underline p-2">
-                  閉じる
-                </button>
+                <p className="text-white/50 text-xs">
+                  (画面が赤くなるように位置を調整)
+                </p>
               </div>
             )}
           </div>
-        )}
-      </div>
+
+          <canvas ref={canvasRef} width="100" height="100" className="hidden" />
+        </div>
+      )}
+
+      {/* --- 計測中画面 --- */}
+      {phase === 'measuring' && (
+        <div className="flex flex-col items-center justify-between h-full w-full py-16 px-6 animate-in fade-in duration-700">
+          {/* プレビュー (小さく表示) */}
+          <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white/30 bg-black mb-4 shadow-lg">
+            <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover opacity-80" />
+          </div>
+
+          <div className="text-center space-y-1 mb-6">
+            <h2 className="text-xl font-bold text-white tracking-widest">{phase === 'measuring' ? "計測中..." : "準備中..."}</h2>
+            <p className="text-white/60 text-xs">残り {remainingTime} 秒</p>
+          </div>
+
+          {/* プログレスリング & ハート */}
+          <div className="relative w-48 h-48 flex items-center justify-center mb-6">
+            <svg className="absolute w-full h-full transform -rotate-90">
+              <circle cx="96" cy="96" r="88" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="none" />
+              <circle cx="96" cy="96" r="88" stroke="white" strokeWidth="3" fill="none"
+                strokeDasharray={2 * Math.PI * 88}
+                strokeDashoffset={2 * Math.PI * 88 * ((100 - progress) / 100)}
+                className="transition-all duration-100 ease-linear"
+              />
+            </svg>
+            <div className="animate-pulse duration-1000">
+              <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="white" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            </div>
+            <div className="absolute top-1/2 mt-14 text-white font-bold text-xl">
+              {bpm > 0 ? bpm : '--'} <span className="text-xs font-normal">bpm</span>
+            </div>
+          </div>
+
+          <div className="w-full h-24 relative mb-4">
+            <canvas ref={waveformCanvasRef} width="300" height="100" className="w-full h-full" />
+            <div className="absolute bottom-0 left-0 w-full h-px bg-white/20"></div>
+          </div>
+
+          <div className="text-white/90 text-sm text-center font-medium">
+            {getGreeting()}<br />
+            調子はいかがでしょうか😌<br />
+            <span className="text-xs text-white/50">※カメラが変わる場合は指をずらしてください</span>
+          </div>
+
+          {/* 解析用隠しキャンバス (これがないとループが止まる) */}
+          <canvas ref={canvasRef} width="100" height="100" className="hidden" />
+        </div>
+      )}
+
+      {/* --- 結果画面 --- */}
+      {(phase === 'analyzing' || phase === 'result') && (
+        <div className={`w-full h-full flex flex-col items-center justify-center bg-sage-50 sm:rounded-3xl p-6 ${phase === 'analyzing' ? '' : 'animate-in zoom-in duration-500'}`}>
+          {phase === 'analyzing' ? (
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <div className="text-xl font-bold text-sage-800">解析中...</div>
+            </div>
+          ) : (
+            <div className="text-center w-full max-w-xs">
+              <div className="mb-2">
+                <span className="text-sage-500 text-sm font-bold tracking-widest">自律神経のスコア</span>
+              </div>
+              <div className="relative mb-6">
+                <div className="text-8xl font-serif text-sage-900 leading-none">{hrvScore}</div>
+                <div className={`font-bold flex items-center justify-center gap-1 mt-2 ${state === 'COACH' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                  <span>{state === 'COACH' ? '🥰' : '🤔'}</span>
+                  <span>{state === 'COACH' ? '絶好調ですね' : '少しお疲れのようです'}</span>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-sage-100 mb-6 text-left">
+                <div className="flex justify-between items-center mb-4 border-b border-sage-50 pb-4">
+                  <div>
+                    <div className="text-xs text-sage-400">心拍数</div>
+                    <div className="text-2xl font-bold text-sage-800">{bpm} <span className="text-sm font-normal">bpm</span></div>
+                  </div>
+                  <div className="h-8 w-px bg-sage-100"></div>
+                  <div>
+                    <div className="text-xs text-sage-400">自律神経バランス</div>
+                    <div className="text-2xl font-bold text-sage-800">{state}</div>
+                  </div>
+                </div>
+                <p className="text-sage-700 text-sm leading-relaxed">{feedback}</p>
+              </div>
+              <button onClick={() => setPhase('intro')} className="text-sage-500 font-bold text-sm hover:text-sage-700 transition-colors">
+                もう一度測定
+              </button>
+              <button onClick={onClose} className="mt-4 text-xs text-sage-400 underline p-2">
+                閉じる
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 };
