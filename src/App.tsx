@@ -535,7 +535,7 @@ const App = () => {
               href={story.event_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition"
+              className="px-3 py-1.5 bg-[#2D8CFF] text-white text-xs font-bold rounded-lg hover:bg-[#1E75E2] transition shadow-sm"
             >
               Zoomへ
             </a>
