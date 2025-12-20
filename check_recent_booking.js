@@ -9,10 +9,10 @@ async function check() {
     console.log('Checking for recent bookings...');
     const { data, error } = await supabase
         .from('user_stories')
-        .select('id, user_id, line_user_id, email, is_session_booked, booked_at, event_schedule, updated_at')
-        // .eq('is_session_booked', true)
-        .order('updated_at', { ascending: false })
-        .limit(5);
+        .select('id, user_id, line_user_id, email, name, is_session_booked, booked_at, updated_at')
+    // .eq('is_session_booked', true)
+    // .order('updated_at', { ascending: false })
+    // .limit(5);
 
     if (error) {
         console.error('Error:', error);

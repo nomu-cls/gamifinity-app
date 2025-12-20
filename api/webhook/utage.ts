@@ -55,6 +55,17 @@ export default async function handler(req: Request) {
 
         console.log('UTAGE Webhook received:', { user_id: targetUserId, mail, name });
 
+        // LOGGING: Save raw payload to DB for debugging
+        try {
+            await supabase.from('webhook_logs').insert({
+                payload: body,
+                error_message: null
+            });
+        } catch (logError) {
+            console.error('Failed to log webhook payload:', logError);
+            // Non-blocking
+        }
+
         // 3. Validate
         if (!targetUserId && !mail) {
             console.error('Missing user_id/event_item01 and mail in payload. Cannot identify user.');
