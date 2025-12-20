@@ -47,6 +47,10 @@ export interface UserStory {
   day3_reward_viewed: boolean;
   is_session_booked?: boolean;
   booked_at?: string;
+  // UTAGE Integration
+  event_schedule?: string;
+  event_url?: string;
+  event_password?: string;
   created_at: string;
   updated_at: string;
 }

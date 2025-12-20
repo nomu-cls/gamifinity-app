@@ -484,40 +484,97 @@ const App = () => {
     </div>
   );
 
-  const ProgressCircle = () => {
-    const activeDaysArray = siteSettings?.active_days || [1, 2, 3];
+  const ReservationStatus = () => {
+    if (!story?.event_schedule) return null;
+
+    const scheduleDate = new Date(story.event_schedule);
+    const dateStr = `${scheduleDate.getMonth() + 1}/${scheduleDate.getDate()}`;
+    const timeStr = `${scheduleDate.getHours()}:${String(scheduleDate.getMinutes()).padStart(2, '0')}`;
+    const weekDay = ['日', '月', '火', '水', '木', '金', '土'][scheduleDate.getDay()];
+
     return (
-      <div className="relative w-full max-w-xs mx-auto mb-8 px-4">
-        <div className="flex justify-evenly items-center relative">
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 -translate-y-1/2 mizuhiki-line" />
-          {activeDaysArray.map((day) => {
-            const isUnlocked = unlockedDays.includes(day);
-            const isCompleted = day === 1 ? story.day1_field1 :
-              day === 2 ? story.day2_field1 :
-                story.day3_field1;
-            return (
-              <div key={day} className="relative z-10 flex flex-col items-center">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-700 shadow-lg
-                ${isUnlocked ? 'glass-card shimmer-border' : 'bg-white/30 backdrop-blur-sm'}`}
-                  style={{
-                    background: isUnlocked ? `linear-gradient(135deg, ${colors.sakura}, ${colors.cream})` : undefined,
-                    border: isCompleted ? `3px solid ${colors.rose}` : '2px solid rgba(255,255,255,0.5)'
-                  }}>
-                  {isCompleted ?
-                    <CheckCircle2 size={22} style={{ color: colors.rose }} /> :
-                    <span className="font-serif text-lg font-bold" style={{ color: isUnlocked ? colors.berry : '#ccc' }}>
-                      {day}
-                    </span>
-                  }
-                </div>
-                <span className={`text-[8px] mt-2 font-bold tracking-[0.3em] transition-colors duration-500
-                ${isUnlocked ? '' : 'opacity-30'}`}
-                  style={{ color: isUnlocked ? colors.rose : '#999' }}>
-                  DAY {day}
-                </span>
-              </div>
-            );
-          })}
+      <div className="mx-4 mb-4">
+        <div className="glass-card p-3 rounded-xl flex items-center justify-between border-l-4 border-l-pink-400 bg-white/80">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center">
+              <Calendar size={20} className="text-pink-500" />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 font-bold">次回セッション予約</p>
+              <p className="font-bold text-gray-800 text-sm">
+                {dateStr}({weekDay}) {timeStr}
+              </p>
+            </div>
+          </div>
+          {story.event_url && (
+            <a
+              href={story.event_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition"
+            >
+              Zoomへ
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const WeatherScoreBar = () => {
+    // Get latest checkin score from localStorage or story (if saved there)
+    // Currently HRVMeasurement saves to localStorage 'last_checkin_score'
+    const [score, setScore] = useState<number | null>(null);
+
+    useEffect(() => {
+      const saved = localStorage.getItem('last_checkin_score');
+      if (saved) setScore(parseInt(saved));
+    }, []);
+
+    if (score === null) return null; // Don't show if no score yet? Or show default?
+
+    let weatherIcon = '☁️';
+    let label = 'メンテナンス期';
+    let gradient = 'from-gray-100 to-gray-200';
+    let textColor = 'text-gray-600';
+
+    if (score >= 80) {
+      weatherIcon = '🌈';
+      label = '神フロー';
+      gradient = 'from-indigo-100 via-purple-100 to-pink-100';
+      textColor = 'text-purple-600';
+    } else if (score >= 60) {
+      weatherIcon = '☀️';
+      label = 'クリエイティブ';
+      gradient = 'from-orange-100 to-yellow-100';
+      textColor = 'text-orange-600';
+    } else if (score <= 40) {
+      weatherIcon = '☔️';
+      label = 'リセット推奨';
+      gradient = 'from-blue-50 to-slate-100';
+      textColor = 'text-slate-600';
+    }
+
+    return (
+      <div className="mx-4 mb-6">
+        <div
+          className={`relative overflow-hidden rounded-xl p-3 flex items-center justify-between shadow-sm border border-white/50 bg-gradient-to-r ${gradient}`}
+          onClick={() => setShowHRVMeasurement(true)}
+        >
+          <div className="flex items-center gap-3 relative z-10">
+            <span className="text-2xl filter drop-shadow-sm">{weatherIcon}</span>
+            <div>
+              <p className="text-[10px] opacity-60 font-bold">現在の状態（天気）</p>
+              <p className={`font-bold text-sm ${textColor}`}>{label} <span className="text-xs opacity-70">({score})</span></p>
+            </div>
+          </div>
+          <div className="relative z-10">
+            <span className="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-500 font-bold backdrop-blur-sm">
+              チェックイン &gt;
+            </span>
+          </div>
+          {/* Animated Background Effect */}
+          <div className="absolute inset-0 bg-white/10 opacity-50 animate-pulse"></div>
         </div>
       </div>
     );
@@ -2336,6 +2393,8 @@ const App = () => {
     const [metrics, setMetrics] = useState<HealthMetric[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedMetric, setSelectedMetric] = useState<HealthMetric | null>(null);
+    const [filterUserId, setFilterUserId] = useState('');
+    const [filterMinScore, setFilterMinScore] = useState('');
 
     useEffect(() => {
       loadMetrics();
@@ -2386,11 +2445,17 @@ const App = () => {
       return labels[type] || type || '未設定';
     };
 
+    const filteredMetrics = metrics.filter(m => {
+      const matchUser = m.line_user_id.toLowerCase().includes(filterUserId.toLowerCase());
+      const matchScore = filterMinScore ? (m.checkin_score || 0) >= Number(filterMinScore) : true;
+      return matchUser && matchScore;
+    });
+
     return (
       <div className="glass-card p-8 rounded-2xl space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="font-serif font-bold text-xl" style={{ color: colors.deepBrown }}>
-            自律神経データ
+            自律神経・チェックインデータ
           </h3>
           <button
             onClick={loadMetrics}
@@ -2401,100 +2466,162 @@ const App = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl text-center" style={{ background: `${colors.rose}15` }}>
-            <p className="text-3xl font-bold" style={{ color: colors.deepBrown }}>{metrics.length}</p>
-            <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>総計測数</p>
+        {/* Filters */}
+        <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/40">
+          <div>
+            <label className="text-xs font-bold block mb-1" style={{ color: colors.deepBrown }}>ユーザーID検索</label>
+            <input
+              type="text"
+              value={filterUserId}
+              onChange={(e) => setFilterUserId(e.target.value)}
+              placeholder="User ID..."
+              className="w-full p-2 rounded-lg text-xs border border-white/50 bg-white/50 text-gray-800"
+            />
           </div>
-          <div className="p-4 rounded-xl text-center" style={{ background: `${colors.sage}15` }}>
-            <p className="text-3xl font-bold" style={{ color: colors.deepBrown }}>
-              {metrics.filter(m => m.stress_level === 'low').length}
-            </p>
-            <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>リラックス状態</p>
-          </div>
-          <div className="p-4 rounded-xl text-center" style={{ background: `${colors.gold}15` }}>
-            <p className="text-3xl font-bold" style={{ color: colors.deepBrown }}>
-              {metrics.filter(m => m.stress_level === 'high').length}
-            </p>
-            <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>ストレス状態</p>
+          <div>
+            <label className="text-xs font-bold block mb-1" style={{ color: colors.deepBrown }}>最小スコア</label>
+            <input
+              type="number"
+              value={filterMinScore}
+              onChange={(e) => setFilterMinScore(e.target.value)}
+              placeholder="0-100"
+              className="w-full p-2 rounded-lg text-xs border border-white/50 bg-white/50 text-gray-800"
+            />
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-8 opacity-60" style={{ color: colors.deepBrown }}>
-            読み込み中...
-          </div>
-        ) : metrics.length === 0 ? (
-          <div className="text-center py-8 opacity-60" style={{ color: colors.deepBrown }}>
-            計測データがありません
-          </div>
-        ) : (
-          <div className="space-y-3 max-h-[500px] overflow-y-auto">
-            {metrics.map((metric) => (
+        <div className="max-h-[600px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+          {isLoading ? (
+            <div className="text-center py-8 opacity-60">読み込み中...</div>
+          ) : filteredMetrics.length === 0 ? (
+            <div className="text-center py-8 opacity-60">データがありません</div>
+          ) : (
+            filteredMetrics.map((metric) => (
               <div
                 key={metric.id}
-                className="p-4 rounded-xl bg-white/50 cursor-pointer hover:bg-white/70 transition-colors"
-                onClick={() => setSelectedMetric(selectedMetric?.id === metric.id ? null : metric)}
+                onClick={() => setSelectedMetric(metric)}
+                className="bg-white/60 p-4 rounded-xl hover:bg-white/80 transition-colors cursor-pointer border border-white/50"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ background: `${colors.rose}20` }}>
-                      <Activity size={18} style={{ color: colors.rose }} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: colors.deepBrown }}>
-                        {metric.line_user_id.slice(0, 12)}...
-                      </p>
-                      <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>
-                        {formatDate(metric.created_at)}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm font-bold
+                    ${metric.checkin_score !== undefined
+                      ? (metric.checkin_score >= 80 ? 'bg-gradient-to-br from-yellow-300 to-orange-400 text-white' :
+                        metric.checkin_score >= 60 ? 'bg-gradient-to-br from-blue-300 to-cyan-400 text-white' : 'bg-gray-100 text-gray-400')
+                      : 'bg-gray-100'
+                    }`}>
+                    {metric.checkin_score !== undefined ? metric.checkin_score : '❤'}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${getStressColor(metric.stress_level)}`}>
-                      {getBalanceLabel(metric.autonomic_balance)}
-                    </span>
-                    <span className="text-lg font-bold" style={{ color: colors.rose }}>
-                      {metric.heart_rate} <span className="text-xs opacity-60">BPM</span>
-                    </span>
+                  <div>
+                    <p className="font-bold text-xs truncate" style={{ color: colors.deepBrown, maxWidth: '120px' }}>
+                      {metric.line_user_id}
+                    </p>
+                    <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>
+                      {formatDate(metric.created_at)}
+                    </p>
                   </div>
                 </div>
 
-                {selectedMetric?.id === metric.id && (
-                  <div className="mt-4 pt-4 border-t border-white/50 space-y-3">
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      <div className="p-2 rounded-lg bg-white/60">
-                        <p className="text-lg font-bold" style={{ color: colors.deepBrown }}>{metric.heart_rate}</p>
-                        <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>心拍数</p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white/60">
-                        <p className="text-lg font-bold" style={{ color: colors.deepBrown }}>{metric.hrv_sdnn}</p>
-                        <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>SDNN</p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white/60">
-                        <p className="text-lg font-bold" style={{ color: colors.deepBrown }}>{metric.hrv_rmssd}</p>
-                        <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>RMSSD</p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white/60">
-                        <p className="text-lg font-bold" style={{ color: colors.deepBrown }}>{metric.signal_quality}%</p>
-                        <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>品質</p>
-                      </div>
+                {metric.checkin_score !== undefined ? (
+                  // Check-in Data Display
+                  <div className="space-y-2">
+                    <div className="flex gap-1 text-[10px] text-gray-400 justify-between">
+                      <span className="px-2 py-0.5 bg-white rounded border border-blue-100 text-blue-400">体 {metric.body_score}</span>
+                      <span className="px-2 py-0.5 bg-white rounded border border-emerald-100 text-emerald-400">心 {metric.mind_score}</span>
+                      <span className="px-2 py-0.5 bg-white rounded border border-orange-100 text-orange-400">情 {metric.passion_score}</span>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/60">
-                      <p className="text-xs font-bold mb-1" style={{ color: colors.deepBrown }}>
-                        脳タイプ: {getBrainTypeLabel(metric.brain_type)}
-                      </p>
-                      {metric.ai_feedback && (
-                        <p className="text-xs opacity-70" style={{ color: colors.deepBrown }}>
-                          {metric.ai_feedback}
-                        </p>
-                      )}
-                    </div>
+                    {metric.ai_feedback && (
+                      <div className="text-xs truncate text-gray-500 bg-white/50 px-2 py-1 rounded">
+                        {metric.ai_feedback}
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  // Legacy HRV Data Display
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${getStressColor(metric.stress_level || '')}`}>
+                        {getBalanceLabel(metric.autonomic_balance || '')}
+                      </span>
+                      <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                        {getBrainTypeLabel(metric.brain_type || '')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs opacity-70 mb-2">
+                      <div>心拍: <span className="font-bold">{metric.heart_rate}</span></div>
+                      <div>元気: <span className="font-bold">{metric.signal_quality}</span></div>
+                    </div>
+                  </>
                 )}
               </div>
-            ))}
+            ))
+          )}
+        </div>
+
+        {selectedMetric && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setSelectedMetric(null)}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-lg space-y-4" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg border-b pb-2">詳細データ</h3>
+
+              {selectedMetric.checkin_score !== undefined ? (
+                // Check-in Detail
+                <div className="space-y-4">
+                  <div className="text-center p-4 bg-gray-50 rounded-xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-orange-400"></div>
+                    <div className="text-sm text-gray-500 mb-1">Total Score</div>
+                    <div className="text-5xl font-black" style={{ color: colors.berry }}>{selectedMetric.checkin_score}</div>
+                    <div className="text-sm font-bold text-gray-400 mt-2">{selectedMetric.checkin_type}</div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-xl font-bold text-blue-500">{selectedMetric.body_score}</div>
+                      <div className="text-xs text-gray-500">Body</div>
+                    </div>
+                    <div className="p-3 bg-emerald-50 rounded-lg">
+                      <div className="text-xl font-bold text-emerald-500">{selectedMetric.mind_score}</div>
+                      <div className="text-xs text-gray-500">Mind</div>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded-lg">
+                      <div className="text-xl font-bold text-orange-500">{selectedMetric.passion_score}</div>
+                      <div className="text-xs text-gray-500">Passion</div>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="font-bold text-xs text-gray-400 mb-2">ADVICE</p>
+                    <p className="text-sm leading-relaxed">{selectedMetric.ai_feedback}</p>
+                  </div>
+                </div>
+              ) : (
+                // Legacy
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <span className="block text-xs text-gray-500">心拍数</span>
+                      <span className="text-xl font-bold">{selectedMetric.heart_rate} bpm</span>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <span className="block text-xs text-gray-500">自律神経バランス</span>
+                      <span className="text-sm font-bold">{getBalanceLabel(selectedMetric.autonomic_balance)}</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <span className="block text-xs text-gray-500">AIアドバイス</span>
+                    <p className="text-sm mt-1">{selectedMetric.ai_feedback}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-400 text-right">
+                ID: {selectedMetric.line_user_id}<br />
+                Time: {new Date(selectedMetric.created_at).toLocaleString()}
+              </div>
+              <button
+                onClick={() => setSelectedMetric(null)}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold"
+              >
+                閉じる
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -4815,7 +4942,12 @@ const App = () => {
           </header>
         )}
 
-        {view !== 'admin' && <ProgressCircle />}
+        {view !== 'admin' && (
+          <div className="space-y-4 mb-6">
+            <ReservationStatus />
+            <WeatherScoreBar />
+          </div>
+        )}
 
         <main className="flex-1 relative z-10">
           {view === 'admin' && <AdminView />}
