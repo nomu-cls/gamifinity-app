@@ -42,20 +42,23 @@ export default async function handler(req: Request) {
         const {
             name,
             mail,
-            user_id, // Mapped from %event_item01% by UTAGE setting
+            user_id, // Standard mapping
+            event_item01, // Raw UTAGE field
             event_schedule,
             event_url,
             event_password,
             datechangepage
         } = body;
 
-        console.log('UTAGE Webhook received:', { user_id, mail, name });
+        // Use event_item01 as user_id if user_id is missing
+        const targetUserId = user_id || event_item01;
+
+        console.log('UTAGE Webhook received:', { user_id: targetUserId, mail, name });
 
         // 3. Validate
-        if (!user_id) {
-            console.error('Missing user_id in payload. Cannot identify user.');
-            // Return 200 to prevent UTAGE retry loop, but log error
-            return new Response(JSON.stringify({ success: false, message: 'Missing user_id' }), {
+        if (!targetUserId && !mail) {
+            console.error('Missing user_id/event_item01 and mail in payload. Cannot identify user.');
+            return new Response(JSON.stringify({ success: false, message: 'Missing user_id or mail' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
             });
@@ -80,12 +83,12 @@ export default async function handler(req: Request) {
 
         let updatedUsers: any[] = [];
 
-        // Strategy 1: Try by user_id (line_user_id) if present
-        if (user_id) {
+        // Strategy 1: Try by user_id (targetUserId) if present
+        if (targetUserId) {
             const { data, error } = await supabase
                 .from('user_stories')
                 .update(updateData)
-                .eq('line_user_id', user_id)
+                .eq('line_user_id', targetUserId)
                 .select();
 
             if (error) throw error;
@@ -94,7 +97,7 @@ export default async function handler(req: Request) {
 
         // Strategy 2: If no user updated by ID (or ID missing), try by Email
         if ((!updatedUsers || updatedUsers.length === 0) && mail) {
-            console.log(`User not found by ID (${user_id}) or ID missing. Trying by Email (${mail})...`);
+            console.log(`User not found by ID (${targetUserId}) or ID missing. Trying by Email (${mail})...`);
             const { data, error } = await supabase
                 .from('user_stories')
                 .update(updateData)
@@ -106,7 +109,7 @@ export default async function handler(req: Request) {
         }
 
         if (!updatedUsers || updatedUsers.length === 0) {
-            console.warn(`User not found for user_id: ${user_id} or email: ${mail}`);
+            console.warn(`User not found for user_id: ${targetUserId} or email: ${mail}`);
             return new Response(JSON.stringify({ success: false, message: 'User not found, but processed' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 status: 200,
