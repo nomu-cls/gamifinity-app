@@ -487,9 +487,28 @@ const App = () => {
   const ReservationStatus = () => {
     if (!story?.event_schedule) return null;
 
-    const scheduleDate = new Date(story.event_schedule);
+    // UTAGE format: "2025/12/25(木) 17:30〜19:00" or standard ISO
+    let scheduleDate: Date | null = null;
+    let timeStr = "";
+
+    // Try parsing UTAGE Japanese format
+    const utageMatch = story.event_schedule.match(/(\d{4})\/(\d{1,2})\/(\d{1,2}).*?(\d{1,2}:\d{2})/);
+    if (utageMatch) {
+      const [_, year, month, day, time] = utageMatch;
+      scheduleDate = new Date(Number(year), Number(month) - 1, Number(day));
+      timeStr = time;
+    } else {
+      // Fallback to standard parse
+      const d = new Date(story.event_schedule);
+      if (!isNaN(d.getTime())) {
+        scheduleDate = d;
+        timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+    }
+
+    if (!scheduleDate) return null;
+
     const dateStr = `${scheduleDate.getMonth() + 1}/${scheduleDate.getDate()}`;
-    const timeStr = `${scheduleDate.getHours()}:${String(scheduleDate.getMinutes()).padStart(2, '0')}`;
     const weekDay = ['日', '月', '火', '水', '木', '金', '土'][scheduleDate.getDay()];
 
     return (
