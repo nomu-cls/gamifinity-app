@@ -494,6 +494,11 @@ const App = () => {
 
     return (
       <div className="mx-4 mb-4">
+        {story.name && (
+          <p className="text-xl font-bold text-gray-800 mb-2 px-2">
+            {story.name}さん、こんにちは！
+          </p>
+        )}
         <div className="glass-card p-3 rounded-xl flex items-center justify-between border-l-4 border-l-pink-400 bg-white/80">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center">

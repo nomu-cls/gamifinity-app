@@ -12,6 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export interface UserStory {
   id: string;
   user_id?: string;
+  name?: string;
   device_id?: string;
   email: string;
   day1_field1: string;
