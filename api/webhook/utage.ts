@@ -66,7 +66,6 @@ export default async function handler(req: Request) {
 
         // 4. Update Logic
         const updateData = {
-            name: name,
             email: mail,
             is_session_booked: true,
             booked_at: new Date().toISOString(),
