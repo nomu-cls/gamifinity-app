@@ -1149,8 +1149,8 @@ const App = () => {
                               alert(`Day ${dayNum} (${dateStr}) のログを作成しました`);
                             }}
                             className={`p-2 rounded-lg text-xs font-bold transition-all ${hasLog
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-400'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-400'
                               }`}
                           >
                             Day {dayNum}
@@ -5760,9 +5760,11 @@ const App = () => {
 
             // Update Story Progress (Daily Logs)
             const today = new Date().toISOString().split('T')[0];
+            const existingTodayLog = (story.daily_logs || {})[today] || {};
             const newLogs = {
               ...(story.daily_logs || {}),
               [today]: {
+                ...existingTodayLog, // Preserve existing data (mission, fortune, etc.)
                 score: metrics.score,
                 type: metrics.type,
                 timestamp: new Date().toISOString()
