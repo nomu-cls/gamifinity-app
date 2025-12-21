@@ -10,7 +10,7 @@ const getDeviceId = () => {
   return deviceId;
 };
 
-export const useStoryData = (lineUserId?: string | null) => {
+export const useStoryData = (lineUserId?: string | null, displayName?: string | null) => {
   const [story, setStory] = useState<UserStory | null>(null);
   const [visionImages, setVisionImages] = useState<VisionBoardImage[]>([]);
   const [giftContent, setGiftContent] = useState<GiftContent | null>(null);
@@ -45,12 +45,19 @@ export const useStoryData = (lineUserId?: string | null) => {
           .maybeSingle();
 
         if (lineStory) {
-          if (lineStory.device_id !== deviceId) {
+          const needsUpdate = lineStory.device_id !== deviceId || (!lineStory.name && displayName);
+          if (needsUpdate) {
+            const updates: any = {};
+            if (lineStory.device_id !== deviceId) updates.device_id = deviceId;
+            if (!lineStory.name && displayName) updates.name = displayName;
+
             await supabase
               .from('user_stories')
-              .update({ device_id: deviceId })
+              .update(updates)
               .eq('id', lineStory.id);
-            lineStory.device_id = deviceId;
+
+            if (updates.device_id) lineStory.device_id = deviceId;
+            if (updates.name) lineStory.name = displayName;
           }
           setStory(lineStory);
           loadVisionImages(lineStory.id);
@@ -83,7 +90,7 @@ export const useStoryData = (lineUserId?: string | null) => {
       } else {
         const { data: newStory } = await supabase
           .from('user_stories')
-          .insert([{ device_id: deviceId, line_user_id: lineUserId || null }])
+          .insert([{ device_id: deviceId, line_user_id: lineUserId || null, name: displayName || null }])
           .select()
           .single();
 

@@ -329,7 +329,7 @@ const VideoModal = ({ url, onClose }: { url: string | null; onClose: () => void 
 
 const App = () => {
   const { userData, refreshUserData, isLoggedIn, isLoading: liffLoading, login, logout, isInitialized, error: liffError } = useLiff();
-  const { story, visionImages, giftContent, dayRewards, siteSettings, daySettings, lineSettings, lineTemplates, loading, updateStory, updateGiftContent, updateDayReward, updateSiteSettings, updateDaySetting, updateLineSettings, updateLineTemplate, addVisionImage, removeVisionImage, submitToGoogleSheets, reloadStoryData, reloadDaySettings, reloadLineSettings, reloadLineTemplates } = useStoryData(userData?.line_user_id);
+  const { story, visionImages, giftContent, dayRewards, siteSettings, daySettings, lineSettings, lineTemplates, loading, updateStory, updateGiftContent, updateDayReward, updateSiteSettings, updateDaySetting, updateLineSettings, updateLineTemplate, addVisionImage, removeVisionImage, submitToGoogleSheets, reloadStoryData, reloadDaySettings, reloadLineSettings, reloadLineTemplates } = useStoryData(userData?.line_user_id, userData?.display_name);
   const [view, setView] = useState('home');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
