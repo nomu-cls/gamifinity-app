@@ -399,15 +399,16 @@ const PassengerDashboard: React.FC<Props> = ({
 
                         {/* Header */}
                         <div className="text-center py-4 border-b border-white/5 relative">
-                            <h2 className="text-xl font-serif text-cyan-300 tracking-widest uppercase" style={{ textShadow: '0 0 10px rgba(34,211,238,0.5)' }}>
-                                WELCOME HANGAR
+                            <p className="text-xs text-cyan-400 tracking-[0.3em] font-bold mb-1">HANGAR</p>
+                            <h2 className="text-xl font-serif text-white tracking-widest" style={{ textShadow: '0 0 10px rgba(34,211,238,0.3)' }}>
+                                {hasDay1Submitted ? 'クルー装備' : '初期装備'}
                             </h2>
                         </div>
 
                         {/* Content Grid */}
                         <div className="p-4 space-y-4 relative z-10">
-                            {/* AFTER MISSION 2 COMPLETION: New Layout */}
-                            {hasDay2Submitted ? (
+                            {/* AFTER MISSION 1 COMPLETION: Show Audio Tracks */}
+                            {hasDay1Submitted ? (
                                 <>
                                     {/* Audio Resources - 2 columns */}
                                     <div className="grid grid-cols-2 gap-3">
@@ -435,7 +436,7 @@ const PassengerDashboard: React.FC<Props> = ({
                                                     onClick={toggleNightAudio}
                                                     className="text-white w-full h-full flex items-center justify-center"
                                                 >
-                                                    {isNightPlaying ? <Pause size={24} fill="white" /> : <Headphones size={24} />}
+                                                    {isNightPlaying ? <Pause size={24} fill="white" /> : <Play size={24} fill="white" className="ml-1" />}
                                                 </button>
                                             </div>
                                             <div className="text-center">
@@ -938,24 +939,6 @@ const PassengerDashboard: React.FC<Props> = ({
                 }
             </div>
 
-            {/* ===== BOTTOM NAVIGATION ===== */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-black/80 backdrop-blur-xl rounded-full border border-white/10 p-2 shadow-2xl flex justify-around items-center z-40">
-                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="p-3 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all flex flex-col items-center gap-1 group">
-                    <MapPin size={20} className="group-hover:text-cyan-400" />
-                    <span className="text-[9px] font-bold">HOME</span>
-                </button>
-                <button onClick={scrollToArchive} className="p-3 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all flex flex-col items-center gap-1 group relative">
-                    <div className="relative">
-                        <Video size={20} className="group-hover:text-cyan-400" />
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    </div>
-                    <span className="text-[9px] font-bold">PLAY</span>
-                </button>
-                <button className="p-3 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all flex flex-col items-center gap-1 group opacity-50 cursor-not-allowed">
-                    <Trophy size={20} className="group-hover:text-yellow-400" />
-                    <span className="text-[9px] font-bold">EVENT</span>
-                </button>
-            </div>
 
             {/* ===== PROMOTION MODAL ===== */}
             {

@@ -44,6 +44,7 @@ export const DailyNavigationModal: React.FC<Props> = ({ story, onClose, onComple
             const today = new Date().toISOString().split('T')[0];
             const newLog = {
                 date: today,
+                score: checkResult.score,
                 metrics: checkResult.metrics,
                 feedback: checkResult.feedback,
                 fortune: fortune,

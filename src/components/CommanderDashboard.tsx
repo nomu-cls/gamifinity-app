@@ -521,7 +521,7 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                                         <div className="w-5 h-5 rounded-full bg-cyan-500/30 flex items-center justify-center">
                                             <span className="text-[10px] text-cyan-300 font-bold">1</span>
                                         </div>
-                                        <span className="text-xs text-white/70">Mission 01: 記憶の森</span>
+                                        <span className="text-xs text-white/70">Video 01：人生を「飛行モード」に切り替える、最初の点火</span>
                                     </div>
                                     <ChevronRight size={14} className={`text-white/30 transition-transform ${showMissionArchive === 1 ? 'rotate-90' : ''}`} />
                                 </button>
@@ -553,7 +553,7 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                                         <div className="w-5 h-5 rounded-full bg-indigo-500/30 flex items-center justify-center">
                                             <span className="text-[10px] text-indigo-300 font-bold">2</span>
                                         </div>
-                                        <span className="text-xs text-white/70">Mission 02: 才能の泉</span>
+                                        <span className="text-xs text-white/70">Video 02：脳内渋滞を抜け出し、真の軌道へ飛び出す「脳内会議」の技術</span>
                                     </div>
                                     <ChevronRight size={14} className={`text-white/30 transition-transform ${showMissionArchive === 2 ? 'rotate-90' : ''}`} />
                                 </button>
@@ -599,19 +599,19 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                                         {totalStamps >= 7 && (
                                             <div className="flex items-center gap-2 p-2 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
                                                 <Gift size={14} className="text-yellow-400 flex-shrink-0" />
-                                                <span className="text-xs text-yellow-200">マモルを安心させる音声</span>
+                                                <span className="text-xs text-yellow-200">【不完全な航路の美しさ】心のノイズ解析シート</span>
                                             </div>
                                         )}
                                         {totalStamps >= 14 && (
                                             <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-xl border border-purple-500/30">
                                                 <Gift size={14} className="text-purple-400 flex-shrink-0" />
-                                                <span className="text-xs text-purple-200">ドラゴンの秘儀 PDF</span>
+                                                <span className="text-xs text-purple-200">【三位一体の音】感覚を研ぎ澄ます音声ガイド</span>
                                             </div>
                                         )}
                                         {totalStamps >= 21 && (
                                             <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-xl border border-amber-500/30">
                                                 <Gift size={14} className="text-amber-400 flex-shrink-0" />
-                                                <span className="text-xs text-amber-200">コマンダー認定証</span>
+                                                <span className="text-xs text-amber-200">【英雄の旅：航路図】一生モノのライフマップ</span>
                                             </div>
                                         )}
                                     </div>
@@ -632,7 +632,7 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-gray-400 font-bold font-sans-rounded mb-0.5">現在の状態（天気）</p>
-                                        <p className="text-sm font-bold text-gray-200 font-serif">神フロー <span className="text-indigo-400 text-xs font-sans-rounded ml-1">({todaysLog?.metrics?.hrv || '-'})</span></p>
+                                        <p className="text-sm font-bold text-gray-200 font-serif">神フロー <span className="text-indigo-400 text-xs font-sans-rounded ml-1">({todaysLog?.score || '-'})</span></p>
                                     </div>
                                 </div>
                                 <button
@@ -653,168 +653,6 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                         </button>
                     )}
                 </div>
-
-                {/* --- 1. 魂のコンパス・セッション CTA --- */}
-                {(() => {
-                    // Calculate time since boarding (created_at)
-                    const createdAt = story.created_at ? new Date(story.created_at) : new Date();
-                    const now = new Date();
-                    const hoursSinceBoarding = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-                    const isIgnitionWindow = hoursSinceBoarding <= 48;
-                    const isNormalFlight = hoursSinceBoarding > 48 && hoursSinceBoarding <= 504;
-
-                    // Countdown for Ignition Window
-                    const remainingMs = Math.max(0, createdAt.getTime() + (48 * 60 * 60 * 1000) - now.getTime());
-                    const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
-                    const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-
-                    // Pricing based on phase
-                    const currentPrice = isIgnitionWindow ? 5500 : isNormalFlight ? 16500 : 33000;
-
-                    return (
-                        <div className="px-4 mb-6">
-                            <div className={`p-[2px] rounded-[2rem] shadow-[0_0_40px_rgba(139,92,246,0.3)] ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-500/70 via-orange-500/60 to-rose-500/50' : 'bg-gradient-to-br from-violet-900/70 via-purple-900/60 to-fuchsia-900/50'}`}>
-                                <div className="bg-gradient-to-br from-slate-900/98 to-slate-800/95 p-5 rounded-[1.9rem] relative overflow-hidden backdrop-blur-xl">
-                                    {/* Background Effects */}
-                                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
-                                    <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-fuchsia-500/15 rounded-full blur-2xl" />
-
-                                    {/* Ignition Countdown Badge */}
-                                    {isIgnitionWindow && (
-                                        <div className="absolute top-3 right-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
-                                            ⏰ 特典終了まで {remainingHours}:{remainingMins.toString().padStart(2, '0')}
-                                        </div>
-                                    )}
-                                    {!isIgnitionWindow && isNormalFlight && (
-                                        <div className="absolute top-3 right-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
-                                            50% OFF · 21日限定
-                                        </div>
-                                    )}
-
-                                    <div className="relative z-10 space-y-4">
-                                        {/* Header - 魂のコンパス */}
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative">
-                                                <div className={`absolute inset-0 rounded-2xl blur-md opacity-60 ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-violet-400 to-fuchsia-500'}`} />
-                                                <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center border shadow-xl ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-500/40 to-orange-500/40 border-amber-400/50' : 'bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 border-violet-400/50'}`}>
-                                                    <Compass size={32} className={isIgnitionWindow ? 'text-amber-200' : 'text-violet-200'} />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <Sparkles size={14} className="text-amber-400" />
-                                                    <p className={`text-[11px] font-bold tracking-wider ${isIgnitionWindow ? 'text-amber-300' : 'text-violet-300'}`}>
-                                                        SOUL COMPASS SESSION
-                                                    </p>
-                                                </div>
-                                                <p className="text-base font-bold text-white font-serif">
-                                                    あなた専用・魂のコンパスをセットする
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Message - Broken's Beautiful */}
-                                        <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
-                                            <p className="text-sm text-white font-medium leading-relaxed">
-                                                🧭 すべてが完璧にならなくても動き出せるための、<br />
-                                                <span className="text-amber-300">特別な作戦会議</span>
-                                            </p>
-                                            <p className="text-xs text-gray-400 leading-relaxed">
-                                                「Broken's Beautiful」の精神で、今のあなたのままで最高に輝くためのルートを一緒に描きます。
-                                            </p>
-                                        </div>
-
-                                        {/* Ignition Package - Bonus Items (no points) */}
-                                        {isIgnitionWindow ? (
-                                            <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/20 rounded-xl p-4 border border-amber-500/30 space-y-3">
-                                                <p className="text-[10px] text-amber-300 font-bold tracking-wider text-center">
-                                                    🎁 48時間限定・早期予約特典
-                                                </p>
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-amber-500/20">
-                                                        <span className="text-lg">🎧</span>
-                                                        <div className="flex-1">
-                                                            <p className="text-xs text-white font-bold">限定音声「点火の美学」</p>
-                                                            <p className="text-[10px] text-gray-400">機体の本能を呼び醒ますガイド</p>
-                                                        </div>
-                                                        <CheckCircle2 size={16} className="text-emerald-400" />
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-amber-500/20">
-                                                        <span className="text-lg">📄</span>
-                                                        <div className="flex-1">
-                                                            <p className="text-xs text-white font-bold">専用PDF「ショートカット・マップ」</p>
-                                                            <p className="text-[10px] text-gray-400">脳タイプ別・21日間効果最大化</p>
-                                                        </div>
-                                                        <CheckCircle2 size={16} className="text-emerald-400" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="bg-black/30 rounded-xl p-4 border border-white/10 space-y-2">
-                                                <p className="text-[10px] text-gray-500 font-bold tracking-wider text-center">
-                                                    🔒 48時間限定特典 - 終了
-                                                </p>
-                                                <div className="space-y-2 opacity-40">
-                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-gray-700">
-                                                        <span className="text-lg grayscale">🎧</span>
-                                                        <p className="text-xs text-gray-500 line-through">限定音声「点火の美学」</p>
-                                                        <Lock size={14} className="text-gray-600 ml-auto" />
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-gray-700">
-                                                        <span className="text-lg grayscale">📄</span>
-                                                        <p className="text-xs text-gray-500 line-through">専用PDF「ショートカット・マップ」</p>
-                                                        <Lock size={14} className="text-gray-600 ml-auto" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Price Display */}
-                                        <div className="flex items-center justify-center gap-4 py-2">
-                                            <div className="text-center">
-                                                <p className="text-[10px] text-gray-500 mb-0.5">通常価格</p>
-                                                <p className="text-lg text-gray-500 line-through">¥33,000</p>
-                                            </div>
-                                            <div className="text-2xl text-white/20">→</div>
-                                            <div className="text-center">
-                                                <p className={`text-[10px] font-bold mb-0.5 ${isIgnitionWindow ? 'text-amber-400' : 'text-violet-400'}`}>
-                                                    {isIgnitionWindow ? '48時間限定 -83%' : isNormalFlight ? '21日限定 -50%' : '通常価格'}
-                                                </p>
-                                                <p className={`text-2xl font-bold text-transparent bg-clip-text ${isIgnitionWindow ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300' : 'bg-gradient-to-r from-violet-300 via-fuchsia-200 to-violet-300'}`}>
-                                                    ¥{currentPrice.toLocaleString()}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* CTA Button */}
-                                        <a
-                                            href={`${siteSettings?.banner_link_url || '#'}${siteSettings?.banner_link_url?.includes('?') ? '&' : '?'}custom_id=${story.line_user_id || ''}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={`group block w-full py-4 text-center rounded-xl text-white font-bold text-base shadow-xl hover:scale-[1.03] active:scale-[0.98] transition-all border relative overflow-hidden ${isIgnitionWindow ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 border-amber-400/50 shadow-amber-500/40' : 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 border-violet-400/50 shadow-violet-500/40'}`}
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                                            <span className="relative flex items-center justify-center gap-2">
-                                                <Compass size={18} />
-                                                {story.is_session_booked ? '予約内容を確認する' : '魂のコンパスをセットする'}
-                                                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                                            </span>
-                                        </a>
-
-                                        {story.is_session_booked && (
-                                            <div className="text-center p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                                                <p className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1">
-                                                    <CheckCircle2 size={14} />
-                                                    ご予約ありがとうございます！
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
 
                 {/* --- 2. Daily Navigation (Main Action) --- */}
                 <div className="px-6 mb-6">
@@ -1095,6 +933,168 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                 )}
 
                 {/* Archives removed - now in WELCOME HANGAR */}
+
+                {/* --- SOUL COMPASS SESSION CTA (Moved to Bottom) --- */}
+                {(() => {
+                    // Calculate time since boarding (created_at)
+                    const createdAt = story.created_at ? new Date(story.created_at) : new Date();
+                    const now = new Date();
+                    const hoursSinceBoarding = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+                    const isIgnitionWindow = hoursSinceBoarding <= 48;
+                    const isNormalFlight = hoursSinceBoarding > 48 && hoursSinceBoarding <= 504;
+
+                    // Countdown for Ignition Window
+                    const remainingMs = Math.max(0, createdAt.getTime() + (48 * 60 * 60 * 1000) - now.getTime());
+                    const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                    const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                    // Pricing based on phase
+                    const currentPrice = isIgnitionWindow ? 5500 : isNormalFlight ? 16500 : 33000;
+
+                    return (
+                        <div className="px-4 mb-6">
+                            <div className={`p-[2px] rounded-[2rem] shadow-[0_0_40px_rgba(139,92,246,0.3)] ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-500/70 via-orange-500/60 to-rose-500/50' : 'bg-gradient-to-br from-violet-900/70 via-purple-900/60 to-fuchsia-900/50'}`}>
+                                <div className="bg-gradient-to-br from-slate-900/98 to-slate-800/95 p-5 rounded-[1.9rem] relative overflow-hidden backdrop-blur-xl">
+                                    {/* Background Effects */}
+                                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
+                                    <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-fuchsia-500/15 rounded-full blur-2xl" />
+
+                                    {/* Ignition Countdown Badge */}
+                                    {isIgnitionWindow && (
+                                        <div className="absolute top-3 right-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
+                                            ⏰ 特典終了まで {remainingHours}:{remainingMins.toString().padStart(2, '0')}
+                                        </div>
+                                    )}
+                                    {!isIgnitionWindow && isNormalFlight && (
+                                        <div className="absolute top-3 right-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
+                                            50% OFF · 21日限定
+                                        </div>
+                                    )}
+
+                                    <div className="relative z-10 space-y-4">
+                                        {/* Header - 魂のコンパス */}
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative">
+                                                <div className={`absolute inset-0 rounded-2xl blur-md opacity-60 ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-violet-400 to-fuchsia-500'}`} />
+                                                <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center border shadow-xl ${isIgnitionWindow ? 'bg-gradient-to-br from-amber-500/40 to-orange-500/40 border-amber-400/50' : 'bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 border-violet-400/50'}`}>
+                                                    <Compass size={32} className={isIgnitionWindow ? 'text-amber-200' : 'text-violet-200'} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Sparkles size={14} className="text-amber-400" />
+                                                    <p className={`text-[11px] font-bold tracking-wider ${isIgnitionWindow ? 'text-amber-300' : 'text-violet-300'}`}>
+                                                        SOUL COMPASS SESSION
+                                                    </p>
+                                                </div>
+                                                <p className="text-base font-bold text-white font-serif">
+                                                    あなた専用・魂のコンパスをセットする
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Message - Broken's Beautiful */}
+                                        <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
+                                            <p className="text-sm text-white font-medium leading-relaxed">
+                                                🧭 すべてが完璧にならなくても動き出せるための、<br />
+                                                <span className="text-amber-300">特別な作戦会議</span>
+                                            </p>
+                                            <p className="text-xs text-gray-400 leading-relaxed">
+                                                「Broken's Beautiful」の精神で、今のあなたのままで最高に輝くためのルートを一緒に描きます。
+                                            </p>
+                                        </div>
+
+                                        {/* Ignition Package - Bonus Items (no points) */}
+                                        {isIgnitionWindow ? (
+                                            <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/20 rounded-xl p-4 border border-amber-500/30 space-y-3">
+                                                <p className="text-[10px] text-amber-300 font-bold tracking-wider text-center">
+                                                    🎁 48時間限定・早期予約特典
+                                                </p>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-amber-500/20">
+                                                        <span className="text-lg">🎧</span>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs text-white font-bold">限定音声「点火の美学」</p>
+                                                            <p className="text-[10px] text-gray-400">機体の本能を呼び醒ますガイド</p>
+                                                        </div>
+                                                        <CheckCircle2 size={16} className="text-emerald-400" />
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-amber-500/20">
+                                                        <span className="text-lg">📄</span>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs text-white font-bold">専用PDF「ショートカット・マップ」</p>
+                                                            <p className="text-[10px] text-gray-400">脳タイプ別・21日間効果最大化</p>
+                                                        </div>
+                                                        <CheckCircle2 size={16} className="text-emerald-400" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-black/30 rounded-xl p-4 border border-white/10 space-y-2">
+                                                <p className="text-[10px] text-gray-500 font-bold tracking-wider text-center">
+                                                    🔒 48時間限定特典 - 終了
+                                                </p>
+                                                <div className="space-y-2 opacity-40">
+                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-gray-700">
+                                                        <span className="text-lg grayscale">🎧</span>
+                                                        <p className="text-xs text-gray-500 line-through">限定音声「点火の美学」</p>
+                                                        <Lock size={14} className="text-gray-600 ml-auto" />
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-2 bg-black/20 rounded-lg border border-gray-700">
+                                                        <span className="text-lg grayscale">📄</span>
+                                                        <p className="text-xs text-gray-500 line-through">専用PDF「ショートカット・マップ」</p>
+                                                        <Lock size={14} className="text-gray-600 ml-auto" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Price Display */}
+                                        <div className="flex items-center justify-center gap-4 py-2">
+                                            <div className="text-center">
+                                                <p className="text-[10px] text-gray-500 mb-0.5">通常価格</p>
+                                                <p className="text-lg text-gray-500 line-through">¥33,000</p>
+                                            </div>
+                                            <div className="text-2xl text-white/20">→</div>
+                                            <div className="text-center">
+                                                <p className={`text-[10px] font-bold mb-0.5 ${isIgnitionWindow ? 'text-amber-400' : 'text-violet-400'}`}>
+                                                    {isIgnitionWindow ? '48時間限定 -83%' : isNormalFlight ? '21日限定 -50%' : '通常価格'}
+                                                </p>
+                                                <p className={`text-2xl font-bold text-transparent bg-clip-text ${isIgnitionWindow ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300' : 'bg-gradient-to-r from-violet-300 via-fuchsia-200 to-violet-300'}`}>
+                                                    ¥{currentPrice.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* CTA Button */}
+                                        <a
+                                            href={`${siteSettings?.banner_link_url || '#'}${siteSettings?.banner_link_url?.includes('?') ? '&' : '?'}custom_id=${story.line_user_id || ''}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`group block w-full py-4 text-center rounded-xl text-white font-bold text-base shadow-xl hover:scale-[1.03] active:scale-[0.98] transition-all border relative overflow-hidden ${isIgnitionWindow ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 border-amber-400/50 shadow-amber-500/40' : 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 border-violet-400/50 shadow-violet-500/40'}`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                                            <span className="relative flex items-center justify-center gap-2">
+                                                <Compass size={18} />
+                                                {story.is_session_booked ? '予約内容を確認する' : '魂のコンパスをセットする'}
+                                                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                            </span>
+                                        </a>
+
+                                        {story.is_session_booked && (
+                                            <div className="text-center p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                                <p className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1">
+                                                    <CheckCircle2 size={14} />
+                                                    ご予約ありがとうございます！
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Modals */}
                 {showDailyModal && (

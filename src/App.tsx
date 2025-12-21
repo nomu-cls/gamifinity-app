@@ -1114,6 +1114,98 @@ const App = () => {
                       お天気リセット実行
                     </button>
                   </div>
+
+                  {/* 21日間テスト用：日付シミュレーション */}
+                  <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200">
+                    <h4 className="font-bold mb-2 text-indigo-700">🗓️ 21日間テスト：日付シミュレーション</h4>
+                    <p className="text-xs text-gray-600 mb-4">
+                      21日間の流れをテストするため、擬似的なログエントリを作成します。<br />
+                      本番環境での使用は推奨されません。
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      {[...Array(21)].map((_, i) => {
+                        const dayNum = i + 1;
+                        const testDate = new Date();
+                        testDate.setDate(testDate.getDate() - (21 - dayNum));
+                        const dateStr = testDate.toISOString().split('T')[0];
+                        const hasLog = story?.daily_logs?.[dateStr];
+
+                        return (
+                          <button
+                            key={dayNum}
+                            onClick={async () => {
+                              const currentLogs = story?.daily_logs || {};
+                              const newLog = {
+                                date: dateStr,
+                                score: 60 + Math.floor(Math.random() * 30),
+                                mission: `Day ${dayNum}のテストミッション`,
+                                mission_completed: true,
+                                completed_at: new Date().toISOString()
+                              };
+                              await updateStory({
+                                daily_logs: { ...currentLogs, [dateStr]: newLog }
+                              } as any);
+                              alert(`Day ${dayNum} (${dateStr}) のログを作成しました`);
+                            }}
+                            className={`p-2 rounded-lg text-xs font-bold transition-all ${hasLog
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-400'
+                              }`}
+                          >
+                            Day {dayNum}
+                            {dayNum === 7 && ' 🎁'}
+                            {dayNum === 14 && ' 🎁'}
+                            {dayNum === 21 && ' 🏆'}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          if (!confirm('1〜21日目すべてのログを一括作成しますか？')) return;
+                          const currentLogs = story?.daily_logs || {};
+                          const allLogs = { ...currentLogs };
+
+                          for (let i = 1; i <= 21; i++) {
+                            const testDate = new Date();
+                            testDate.setDate(testDate.getDate() - (21 - i));
+                            const dateStr = testDate.toISOString().split('T')[0];
+                            allLogs[dateStr] = {
+                              date: dateStr,
+                              score: 60 + Math.floor(Math.random() * 30),
+                              mission: `Day ${i}のテストミッション`,
+                              mission_completed: true,
+                              completed_at: new Date().toISOString()
+                            };
+                          }
+
+                          await updateStory({ daily_logs: allLogs } as any);
+                          alert('21日分のログを一括作成しました！');
+                          window.location.reload();
+                        }}
+                        className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors"
+                      >
+                        ✨ 21日分一括作成
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm('今日のログのみリセットしますか？（デイリーナビを再テスト可能に）')) return;
+                          const today = new Date().toISOString().split('T')[0];
+                          const currentLogs = { ...story?.daily_logs } || {};
+                          delete currentLogs[today];
+                          await updateStory({ daily_logs: currentLogs } as any);
+                          alert('今日のログをリセットしました');
+                          window.location.reload();
+                        }}
+                        className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600 transition-colors"
+                      >
+                        🔄 今日のみリセット
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
