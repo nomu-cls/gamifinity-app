@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { CheckCircle2, Heart, Sparkles, Play, Pause, Send, Plus, X, Trophy, Compass, Feather, Book as BookIcon, Flower, Music, Cloud, Star as Stars, Lock, Unlock, BookOpen, ArrowRight, Settings, RefreshCw, Gift, Calendar, Smartphone, Cpu, HelpCircle, ExternalLink, Copy, Check, Activity, Users, MessageCircle } from 'lucide-react';
+import { CheckCircle2, Heart, Sparkles, Play, Pause, Send, Plus, X, Trophy, Compass, Feather, Flower, Music, Cloud, Star as Stars, Lock, Unlock, BookOpen, ArrowRight, Settings, RefreshCw, Gift, Calendar, Smartphone, Cpu, HelpCircle, ExternalLink, Copy, Check, Activity, Users, MessageCircle, Trash2, Rocket } from 'lucide-react';
 import { useStoryData } from './hooks/useStoryData';
 import { supabase } from './lib/supabase';
 import { CountdownTimer } from './components/CountdownTimer';
@@ -12,13 +12,17 @@ import YouTubePlayer from './components/YouTubePlayer';
 import { useLiff } from './hooks/useLiff';
 import NiyaNiyaList from './components/NiyaNiyaList';
 import ChatDashboard from './components/ChatDashboard';
-
+import PassengerDashboard from './components/PassengerDashboard';
+import CommanderDashboard from './components/CommanderDashboard';
+import BoardingPass from './components/BoardingPass';
+import MissionIgnition from './components/MissionIgnition';
 const StyleTag = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Charm:wght@400;700&display=swap');
 
     :root {
       font-family: 'Zen Maru Gothic', sans-serif;
+      background-color: #fdfaf9;
     }
 
     .font-serif { font-family: 'Shippori Mincho', serif; }
@@ -26,11 +30,19 @@ const StyleTag = () => (
 
     .sakura-gradient {
       background: linear-gradient(135deg,
-        #FFF5F7 0%,
-        #FFE8E8 25%,
-        #FFF9E8 50%,
-        #F3F7FF 75%,
-        #FFF5F7 100%);
+        #fdfaf9 0%,
+        #fcf4f4 25%,
+        #fdfaf9 50%,
+        #f4f6fc 75%,
+        #fdfaf9 100%);
+      animation: gradientShift 20s ease infinite;
+    }
+
+    .space-gradient {
+      background: linear-gradient(135deg,
+        #0f0c29 0%,
+        #302b63 50%,
+        #24243e 100%);
       animation: gradientShift 20s ease infinite;
     }
 
@@ -59,9 +71,9 @@ const StyleTag = () => (
       height: 2px;
       background: linear-gradient(90deg,
         transparent 0%,
-        #D1A6A6 15%,
-        #B89B66 50%,
-        #D1A6A6 85%,
+        #eaddda 15%,
+        #dbcbc8 50%,
+        #eaddda 85%,
         transparent 100%);
       animation: shimmer 3s ease-in-out infinite;
     }
@@ -72,7 +84,7 @@ const StyleTag = () => (
     }
 
     .paper-texture {
-      background-color: #FFFEF9;
+      background-color: #fdfaf9;
       background-image:
         repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.01) 2px, rgba(0,0,0,0.01) 4px),
         repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.01) 2px, rgba(0,0,0,0.01) 4px);
@@ -145,9 +157,10 @@ const StyleTag = () => (
     }
 
     .glass-card {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(20px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px) saturate(180%);
+      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+      border: none;
     }
 
     .shimmer-border {
@@ -186,7 +199,7 @@ const StyleTag = () => (
 
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, #D1A6A6, #B89B66);
+      background: linear-gradient(180deg, #eaddda, #dbcbc8);
       border-radius: 10px;
     }
 
@@ -200,7 +213,7 @@ const StyleTag = () => (
 
     .map-location:hover {
       transform: translateY(-10px) scale(1.1);
-      filter: drop-shadow(0 20px 40px rgba(209, 166, 166, 0.3));
+      filter: drop-shadow(0 20px 40px rgba(220, 200, 200, 0.3));
     }
 
     @keyframes stampPress {
@@ -255,27 +268,103 @@ const StyleTag = () => (
 );
 
 const colors = {
-  sakura: '#FFE8E8',
-  cream: '#FFF9E8',
-  rose: '#D1A6A6',
+  sakura: '#fdfaf9',
+  cream: '#fdfaf9',
+  rose: '#eaddda',
   gold: '#B89B66',
   deepBrown: '#5D4E4E',
   sage: '#A6BBA6',
-  sky: '#E8F4F8',
+  sky: '#f4f6fc',
   berry: '#831843',
-  primaryLight: '#F8C3CD',
-  primaryDeep: '#D9808C'
+  primaryLight: '#FCD4E5',
+  primaryDeep: '#E0D4FC'
+};
+
+// Video Modal Component defined outside to avoid re-creation
+const VideoModal = ({ url, onClose }: { url: string | null; onClose: () => void }) => {
+  if (!url) return null;
+
+  // Helper to converting common YouTube URLs to embed format
+  const getEmbedUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      // Handle shorttu.be/ID
+      if (u.hostname === 'youtu.be') {
+        return `https://www.youtube.com/embed/${u.pathname.slice(1)}?autoplay=1`;
+      }
+      // Handle youtube.com/watch?v=ID
+      if (u.hostname.includes('youtube.com') && u.searchParams.has('v')) {
+        return `https://www.youtube.com/embed/${u.searchParams.get('v')}?autoplay=1`;
+      }
+      return url; // Return original if not recognized or already embeddable
+    } catch (e) {
+      return url;
+    }
+  };
+
+  const embedUrl = getEmbedUrl(url);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      <div className="w-full max-w-4xl bg-black rounded-3xl overflow-hidden relative shadow-2xl animate-in zoom-in duration-300">
+        <div className="aspect-video w-full">
+          <iframe
+            src={embedUrl}
+            title="Video Content"
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all transform hover:scale-110"
+        >
+          <X size={24} />
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const App = () => {
-  const { userData, refreshUserData, isLoggedIn, isLoading: liffLoading, login, isInitialized, error: liffError } = useLiff();
+  const { userData, refreshUserData, isLoggedIn, isLoading: liffLoading, login, logout, isInitialized, error: liffError } = useLiff();
   const { story, visionImages, giftContent, dayRewards, siteSettings, daySettings, lineSettings, lineTemplates, loading, updateStory, updateGiftContent, updateDayReward, updateSiteSettings, updateDaySetting, updateLineSettings, updateLineTemplate, addVisionImage, removeVisionImage, submitToGoogleSheets, reloadStoryData, reloadDaySettings, reloadLineSettings, reloadLineTemplates } = useStoryData(userData?.line_user_id);
   const [view, setView] = useState('home');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newlyClaimedReward, setNewlyClaimedReward] = useState<number | 'perfect' | null>(null);
   const [sendingToLine, setSendingToLine] = useState(false);
-  const [lineMessage, setLineMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [lineMessage, setLineMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null); // Worldview State
+  const [showBoardingPass, setShowBoardingPass] = useState(false);
+
+  useEffect(() => {
+    if (!story || !story.name) return;
+
+    const hasSeenPass = localStorage.getItem('hasSeenBoardingPass');
+    const lastSeenBrainType = localStorage.getItem('lastSeenBrainType');
+
+    // Condition 1: First time sighting (onboarding)
+    if (!hasSeenPass) {
+      // Wait a bit if it's potentially confusing with other modals, but for now show it.
+      // Maybe wait for "RevivalModal" check to pass? 
+      // Let's set a small timeout to ensure data is loaded.
+      setTimeout(() => setShowBoardingPass(true), 1000);
+    }
+    // Condition 2: Brain Type Diagnosis recently completed (and not yet seen on pass)
+    else if (story.brain_type && lastSeenBrainType !== story.brain_type) {
+      setTimeout(() => setShowBoardingPass(true), 1000);
+    }
+
+  }, [story?.name, story?.brain_type]);
+
+  const handleCloseBoardingPass = () => {
+    setShowBoardingPass(false);
+    localStorage.setItem('hasSeenBoardingPass', 'true');
+    if (story?.brain_type) {
+      localStorage.setItem('lastSeenBrainType', story.brain_type);
+    }
+  };
   const [showRevivalModal, setShowRevivalModal] = useState(false);
   const [revivalDay, setRevivalDay] = useState<number | null>(null);
   const [showHRVMeasurement, setShowHRVMeasurement] = useState(false);
@@ -288,6 +377,10 @@ const App = () => {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submittingTaskRef = useRef(false);
+  const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
+
+  // Configuration: 'PROGRESS' (Sequential) or 'DATE' (Time-based for challenges)
+  const UNLOCK_MODE = 'PROGRESS' as 'PROGRESS' | 'DATE';
 
   const unlockedDays = useMemo(() => {
     if (!story) return [];
@@ -297,7 +390,7 @@ const App = () => {
       return story.unlocked_days as number[];
     }
 
-    // デフォルトの時間ベース判定
+    // デフォルト判定
     const now = new Date();
     const unlocked: number[] = [];
 
@@ -305,16 +398,29 @@ const App = () => {
     const day2UnlockTime = new Date('2026-01-20T21:30:00');
     const day3UnlockTime = new Date('2026-01-22T21:30:00');
 
-    if (now >= day1UnlockTime) {
-      unlocked.push(1);
-    }
+    if (UNLOCK_MODE === 'DATE') {
+      // --- DATE Mode: 完了状況に関わらず、日付だけで解禁 ---
+      if (now >= day1UnlockTime) unlocked.push(1);
+      if (now >= day2UnlockTime) unlocked.push(2);
+      if (now >= day3UnlockTime) unlocked.push(3);
 
-    if (now >= day2UnlockTime && story.day1_field1) {
-      unlocked.push(2);
-    }
+    } else {
+      // --- PROGRESS Mode: 前の課題完了で次が解禁 (現在の日付条件もFallbackとして維持) ---
 
-    if (now >= day3UnlockTime && story.day2_field1) {
-      unlocked.push(3);
+      // Day 1: 診断完了 or 時間経過
+      if (!!story.brain_type || now >= day1UnlockTime) {
+        unlocked.push(1);
+      }
+
+      // Day 2: Day 1完了
+      if ((!!story.day1_field1) || (now >= day2UnlockTime && story.day1_field1)) {
+        unlocked.push(2);
+      }
+
+      // Day 3: Day 2完了
+      if ((!!story.day2_field1) || (now >= day3UnlockTime && story.day2_field1)) {
+        unlocked.push(3);
+      }
     }
 
     return unlocked;
@@ -485,40 +591,62 @@ const App = () => {
   );
 
   const ReservationStatus = () => {
-    if (!story?.event_schedule) return null;
-
     // UTAGE format: "2025/12/25(木) 17:30〜19:00" or standard ISO
     let scheduleDate: Date | null = null;
     let timeStr = "";
 
-    // Try parsing UTAGE Japanese format
-    const utageMatch = story.event_schedule.match(/(\d{4})\/(\d{1,2})\/(\d{1,2}).*?(\d{1,2}:\d{2})/);
-    if (utageMatch) {
-      const [_, year, month, day, time] = utageMatch;
-      scheduleDate = new Date(Number(year), Number(month) - 1, Number(day));
-      timeStr = time;
-    } else {
-      // Fallback to standard parse
-      const d = new Date(story.event_schedule);
-      if (!isNaN(d.getTime())) {
-        scheduleDate = d;
-        timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (story?.event_schedule) {
+      // Try parsing UTAGE Japanese format
+      const utageMatch = story.event_schedule.match(/(\d{4})\/(\d{1,2})\/(\d{1,2}).*?(\d{1,2}:\d{2})/);
+      if (utageMatch) {
+        const [_, year, month, day, time] = utageMatch;
+        scheduleDate = new Date(Number(year), Number(month) - 1, Number(day));
+        timeStr = time;
+      } else {
+        // Fallback to standard parse
+        const d = new Date(story.event_schedule);
+        if (!isNaN(d.getTime())) {
+          scheduleDate = d;
+          timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
       }
     }
 
-    if (!scheduleDate) return null;
+    // EMPTY STATE (No Reservation) - Requested by User
+    if (!scheduleDate) {
+      return (
+        <div className="mx-4 mb-4">
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+                <Calendar size={20} className="text-gray-400" />
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 font-bold">次回セッション予約</p>
+                <p className="font-bold text-gray-400 text-xs">未予約</p>
+              </div>
+            </div>
+            <a
+              href="https://smart.reservestock.jp/reserve_form/index/30784"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition"
+            >
+              予約する
+            </a>
+          </div>
+        </div>
+      );
+    }
 
+    // BOOKED STATE
     const dateStr = `${scheduleDate.getMonth() + 1}/${scheduleDate.getDate()}`;
     const weekDay = ['日', '月', '火', '水', '木', '金', '土'][scheduleDate.getDay()];
 
     return (
       <div className="mx-4 mb-4">
-        {story.name && (
-          <p className="text-xl font-bold text-gray-800 mb-2 px-2">
-            {story.name}さん、こんにちは！
-          </p>
-        )}
-        <div className="glass-card p-3 rounded-xl flex items-center justify-between border-l-4 border-l-pink-400 bg-white/80">
+        {/* Greeting removed as per design request */}
+        <div className="bg-white p-3 rounded-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center">
               <Calendar size={20} className="text-pink-500" />
@@ -545,15 +673,30 @@ const App = () => {
     );
   };
 
+
   const WeatherScoreBar = () => {
-    // Get latest checkin score from localStorage or story (if saved there)
-    // Currently HRVMeasurement saves to localStorage 'last_checkin_score'
+    // Get latest checkin score from database (daily_logs)
     const [score, setScore] = useState<number | null>(null);
 
     useEffect(() => {
+      // 1. Try to get from daily_logs first (Server Source of Truth)
+      if (story?.daily_logs) {
+        const today = new Date().toISOString().split('T')[0];
+        const log = story.daily_logs[today];
+        if (log && typeof log.score === 'number') {
+          setScore(log.score);
+          return;
+        }
+      }
+
+      // 2. Fallback to localStorage (Legacy/Offline support)
       const saved = localStorage.getItem('last_checkin_score');
-      if (saved) setScore(parseInt(saved));
-    }, []);
+      if (saved) {
+        setScore(parseInt(saved));
+      } else {
+        setScore(null);
+      }
+    }, [story?.daily_logs]);
 
     if (score === null) return null; // Don't show if no score yet? Or show default?
 
@@ -583,7 +726,6 @@ const App = () => {
       <div className="mx-4 mb-6">
         <div
           className={`relative overflow-hidden rounded-xl p-3 flex items-center justify-between shadow-sm border border-white/50 bg-gradient-to-r ${gradient}`}
-          onClick={() => setShowHRVMeasurement(true)}
         >
           <div className="flex items-center gap-3 relative z-10">
             <span className="text-2xl filter drop-shadow-sm">{weatherIcon}</span>
@@ -592,11 +734,7 @@ const App = () => {
               <p className={`font-bold text-sm ${textColor}`}>{label} <span className="text-xs opacity-70">({score})</span></p>
             </div>
           </div>
-          <div className="relative z-10">
-            <span className="text-xs bg-white/50 px-2 py-1 rounded-full text-gray-500 font-bold backdrop-blur-sm">
-              チェックイン &gt;
-            </span>
-          </div>
+
           {/* Animated Background Effect */}
           <div className="absolute inset-0 bg-white/10 opacity-50 animate-pulse"></div>
         </div>
@@ -884,6 +1022,7 @@ const App = () => {
       { id: 'ai', label: 'AI接続', icon: Cpu },
       { id: 'line', label: 'LINE連携', icon: Send },
       { id: 'templates', label: 'メッセージ', icon: BookOpen },
+      { id: 'debug', label: 'デバッグ', icon: Activity },
     ];
 
     return (
@@ -936,6 +1075,46 @@ const App = () => {
                   ユーザー一覧
                 </h3>
                 <NiyaNiyaList onUserChatClick={handleUserChatClick} />
+              </div>
+            )}
+
+            {activeSection === 'debug' && (
+              <div className="glass-card p-8 rounded-2xl space-y-8">
+                <h3 className="font-serif font-bold text-xl mb-6 flex items-center gap-3" style={{ color: colors.deepBrown }}>
+                  <Activity size={24} style={{ color: colors.berry }} />
+                  デバッグツール
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="p-6 bg-white/50 rounded-2xl border border-white/50">
+                    <h4 className="font-bold mb-2 text-gray-700">お天気データのリセット</h4>
+                    <p className="text-xs text-gray-500 mb-4">
+                      自分自身の「お天気チェック（HRV計測）」の履歴を全て消去し、未実施の状態に戻します。<br />
+                      ※ データベース上のログもクリアされます。
+                    </p>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('本当にリセットしますか？（この操作は取り消せません）')) return;
+                        try {
+                          // Clear localStorage
+                          localStorage.removeItem('last_checkin_score');
+
+                          // Clear Story daily_logs and session booking
+                          await updateStory({ daily_logs: {}, is_session_booked: false } as any);
+
+                          alert('リセットしました。画面を再読み込みします。');
+                          window.location.reload();
+                        } catch (e) {
+                          alert('エラーが発生しました: ' + e);
+                        }
+                      }}
+                      className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold text-sm shadow-md hover:bg-red-600 transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 size={18} />
+                      お天気リセット実行
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1095,6 +1274,158 @@ const App = () => {
                 </div>
               </div>
             )}
+
+            <div className="p-6 rounded-xl bg-white/40 space-y-4">
+              <h4 className="font-bold text-sm" style={{ color: colors.deepBrown }}>
+                【管理者用/デバッグ】ユーザー状態リセット
+              </h4>
+              <p className="text-xs text-red-500 font-bold">
+                ※注意: 診断結果、課題（Day 1/2）、進行状況を全てリセットし、オープニング前に戻します。
+              </p>
+              <button
+                onClick={async () => {
+                  if (!confirm('本当にユーザー状態をリセットしますか？この操作は取り消せません。')) return;
+
+                  try {
+                    setIsSyncing(true); // Reuse syncing loader
+                    setSyncMessage('リセット中...');
+
+                    await updateStory({
+                      brain_type: null,
+                      user_phase: 'passenger', // Force back to passenger
+                      intro_progress: 0,
+                      day1_field1: null, // Clear assignments
+                      day2_field1: null,
+                      is_gift_sent: false,
+                      is_locked: false, // Ensure not locked out
+                      unlocked_days: [], // Reset unlocks
+                    });
+
+                    // Clear local storage if any
+                    localStorage.removeItem('brainType');
+
+                    setSyncMessage('リセット完了。リロードします。');
+                    setTimeout(() => window.location.reload(), 1000);
+
+                  } catch (e) {
+                    console.error(e);
+                    setSyncMessage('リセット失敗: ' + (e as Error).message);
+                  } finally {
+                    setIsSyncing(false);
+                  }
+                }}
+                disabled={isSyncing}
+                className="w-full px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105 disabled:opacity-50 flex items-center justify-center gap-2 text-white bg-red-500"
+              >
+                ユーザー状態を完全リセット (Passenger初期化)
+              </button>
+
+              {/* Phase toggle solely for testing */}
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    await updateStory({ user_phase: 'passenger' });
+                    alert('Switched to Passenger Phase');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-gray-200 rounded"
+                >
+                  Force Passenger
+                </button>
+                <button
+                  onClick={async () => {
+                    await updateStory({ user_phase: 'commander' });
+                    alert('Switched to Commander Phase');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-indigo-200 text-indigo-800 rounded font-bold"
+                >
+                  Force Commander
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm('天気（HRVログ）をリセットしますか？')) return;
+                    const today = new Date().toISOString().split('T')[0];
+                    const logs = { ...(story.daily_logs || {}) };
+                    delete logs[today];
+                    await updateStory({ daily_logs: logs });
+                    alert('Reset Weather Logs');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-cyan-200 text-cyan-800 rounded font-bold"
+                >
+                  Reset Weather
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm('個人セッション予約をリセットしますか？')) return;
+                    await updateStory({ event_schedule: null, event_url: null } as any);
+                    alert('予約をリセットしました');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-orange-200 text-orange-800 rounded font-bold"
+                >
+                  Reset Reservation
+                </button>
+              </div>
+
+              {/* State Machine Debug */}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={async () => {
+                    if (!confirm('全ての進捗をリセットして PASSENGER に戻しますか？')) return;
+                    await updateStory({
+                      brain_type: undefined,
+                      user_phase: 'passenger',
+                      day1_field1: '',
+                      day1_field2: '',
+                      day1_field3: '',
+                      day2_field1: '',
+                      day2_field2: '',
+                      day2_field3: '',
+                      day3_field1: '',
+                      day3_field2: '',
+                      day3_field3: '',
+                      day1_reward_viewed: false,
+                      day2_reward_viewed: false,
+                      day3_reward_viewed: false,
+                      daily_logs: {},
+                    } as any);
+                    localStorage.removeItem('hasSeenBoardingPass');
+                    localStorage.removeItem('lastSeenBrainType');
+                    localStorage.removeItem('promo_dismissed');
+                    alert('Reset to PASSENGER');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-red-200 text-red-800 rounded font-bold"
+                >
+                  🔄 Reset to Passenger
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm('全課題完了扱いにして COMMANDER へ昇格しますか？')) return;
+                    await updateStory({
+                      brain_type: 'left_2d',
+                      user_phase: 'commander',
+                      day1_field1: 'Fast Forward',
+                      day2_field1: 'Fast Forward',
+                      day3_field1: 'Fast Forward',
+                      day1_reward_viewed: true,
+                      day2_reward_viewed: true,
+                      day3_reward_viewed: true,
+                    } as any);
+                    localStorage.setItem('hasSeenBoardingPass', 'true');
+                    localStorage.setItem('promo_dismissed', 'true');
+                    alert('Fast Forward to COMMANDER');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-2 text-xs bg-green-200 text-green-800 rounded font-bold"
+                >
+                  ⏩ Fast Forward
+                </button>
+              </div>
+
+            </div>
 
             {activeSection === 'reward' && (
               <div className="glass-card p-8 rounded-2xl space-y-6">
@@ -3623,462 +3954,571 @@ const App = () => {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  const HomeView = () => {
-    const activeDaysArray = siteSettings?.active_days || [1, 2, 3];
-    const dayData = activeDaysArray.map(day => {
-      const setting = daySettings[day];
-      const archiveUrls = [story.day1_archive_url, story.day2_archive_url, story.day3_archive_url];
-      const archiveDeadlines = [siteSettings?.day1_archive_deadline, siteSettings?.day2_archive_deadline, siteSettings?.day3_archive_deadline];
-      const assignmentDeadlines = [siteSettings?.day1_assignment_deadline, siteSettings?.day2_assignment_deadline, siteSettings?.day3_assignment_deadline];
-      const completedFields = [story.day1_field1, story.day2_field1, story.day3_field1];
+  // Shared Data Calculation (Moved from HomeView)
+  const activeDaysArray = siteSettings?.active_days || [1, 2, 3];
+  const dayData = activeDaysArray.map(day => {
+    const setting = daySettings[day];
+    const archiveUrls = [story.day1_archive_url, story.day2_archive_url, story.day3_archive_url];
+    const archiveDeadlines = [siteSettings?.day1_archive_deadline, siteSettings?.day2_archive_deadline, siteSettings?.day3_archive_deadline];
+    const assignmentDeadlines = [siteSettings?.day1_assignment_deadline, siteSettings?.day2_assignment_deadline, siteSettings?.day3_assignment_deadline];
+    const completedFields = [story.day1_field1, story.day2_field1, story.day3_field1];
 
-      return {
-        day,
-        title: setting?.title || `Day ${day}`,
-        subtitle: setting?.subtitle || `Chapter ${day}`,
-        date: setting?.date || '',
-        completed: !!completedFields[day - 1],
-        hasReward: !!dayRewards[day],
-        archiveUrl: archiveUrls[day - 1],
-        archiveDeadline: archiveDeadlines[day - 1],
-        assignmentDeadline: assignmentDeadlines[day - 1]
-      };
-    });
+    return {
+      day,
+      title: setting?.title || `Day ${day}`,
+      subtitle: setting?.subtitle || `Chapter ${day}`,
+      date: setting?.date || '',
+      completed: !!completedFields[day - 1],
+      hasReward: !!dayRewards[day],
+      archiveUrl: archiveUrls[day - 1],
+      archiveDeadline: archiveDeadlines[day - 1],
+      assignmentDeadline: assignmentDeadlines[day - 1]
+    };
+  });
 
-    return (
-      <div className="page-turn-in space-y-8 relative z-10">
-        <div className="grid grid-cols-1 gap-5">
-          {dayData.map(({ day, title, subtitle, date, completed, hasReward, archiveUrl, archiveDeadline, assignmentDeadline }) => {
-            const isUnlocked = unlockedDays.includes(day);
-            const isArchiveAvailable = archiveUrl && archiveDeadline && new Date(archiveDeadline) > new Date();
-            const showReward = completed && hasReward;
-            const showActions = showReward || isArchiveAvailable;
-            const rewardViewed = day === 1 ? story.day1_reward_viewed : day === 2 ? story.day2_reward_viewed : story.day3_reward_viewed;
 
-            return (
-              <div key={day} className="relative">
-                <div
-                  className={`group relative overflow-hidden rounded-[2rem] transition-all duration-500 glass-card w-full
-                    ${isUnlocked ? 'shadow-xl shadow-pink-100' : 'opacity-50 grayscale'}
-                  `}
-                >
-                  <button
-                    onClick={() => isUnlocked && setView(`day${day}`)}
-                    disabled={!isUnlocked}
-                    className={`w-full p-6 text-left transition-all duration-300
-                      ${isUnlocked && !showActions ? 'hover:scale-[1.02] active:scale-95' : ''}
-                      ${!isUnlocked ? 'cursor-not-allowed' : ''}
-                    `}
+
+  const DayListComponent = () => (
+    <div className="space-y-4 px-4 pb-8">
+      {dayData.map(({ day, title, subtitle, date, completed, hasReward, archiveUrl, archiveDeadline, assignmentDeadline }) => {
+        let isUnlocked = unlockedDays.includes(day);
+
+        // Refined Onboarding: Sequential Unlock Logic (Passenger Phase)
+        if (!story.user_phase || story.user_phase === 'passenger') {
+          const hasDiagnosis = !!story.brain_type;
+          const hasDay1 = !!story.day1_field1;
+
+          if (day === 1) isUnlocked = hasDiagnosis;
+          if (day === 2) isUnlocked = hasDay1;
+          // Day 3+ remains locked until Commander phase
+          if (day >= 3) isUnlocked = false;
+        }
+
+        const isArchiveAvailable = archiveUrl && archiveDeadline && new Date(archiveDeadline) > new Date();
+        const showReward = completed && hasReward;
+        const showActions = showReward || isArchiveAvailable;
+        const rewardViewed = day === 1 ? story.day1_reward_viewed : day === 2 ? story.day2_reward_viewed : story.day3_reward_viewed;
+
+        return (
+          <div key={day} className="relative">
+            <div
+              className={`group relative overflow-hidden rounded-[2rem] transition-all duration-500 glass-card w-full
+              ${isUnlocked ? 'shadow-xl shadow-pink-100' : 'opacity-50 grayscale'}
+            `}
+            >
+              <button
+                onClick={() => isUnlocked && setView(`day${day}`)}
+                disabled={!isUnlocked}
+                className={`w-full p-6 text-left transition-all duration-300
+                ${isUnlocked && !showActions ? 'hover:scale-[1.02] active:scale-95' : ''}
+                ${!isUnlocked ? 'cursor-not-allowed' : ''}
+              `}
+              >
+                {isUnlocked && (
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Sparkles size={48} style={{ color: colors.primaryDeep }} />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-5">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6 relative shadow-inner
+                  ${isUnlocked ? 'bg-white' : 'bg-gray-100'}`}
                   >
-                    {isUnlocked && (
-                      <div className="absolute top-0 right-0 p-4 opacity-10">
-                        <Sparkles size={48} style={{ color: colors.primaryDeep }} />
-                      </div>
+                    {/* Progress Line Connector (Visual only) */}
+                    {day < 3 && (
+                      <div className="absolute -bottom-8 left-1/2 w-0.5 h-6 bg-gray-200 -translate-x-1/2 z-0 opacity-50" />
                     )}
 
-                    <div className="flex items-center gap-5">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6
-                        ${isUnlocked ? 'shadow-inner' : 'bg-gray-100'}`}
-                        style={isUnlocked ? { background: `linear-gradient(to bottom right, ${colors.sakura}, ${colors.primaryLight})` } : {}}>
-                        {isUnlocked ?
-                          (completed ? <CheckCircle2 style={{ color: colors.primaryDeep }} size={28} /> : <BookOpen style={{ color: colors.primaryDeep }} size={28} />) :
-                          <Lock className="text-gray-400" size={24} />
-                        }
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: colors.primaryDeep }}>{subtitle}</span>
-                          {completed && <span className="text-[10px] text-white px-2 py-0.5 rounded-full" style={{ background: colors.primaryDeep }}>提出済み</span>}
-                          {!completed && assignmentDeadline && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: colors.sakura, color: colors.berry }}>
-                              提出期限: {formatDeadline(assignmentDeadline)}まで
-                            </span>
-                          )}
+                    {isUnlocked ? (
+                      completed ? (
+                        <div className="w-full h-full rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white shadow-md">
+                          <CheckCircle2 size={24} />
                         </div>
-                        <h3 className="font-serif font-bold text-lg mb-1" style={{ color: colors.deepBrown }}>
-                          Day {day} {title}
-                        </h3>
-                        <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>
-                          {date}
-                        </p>
+                      ) : (
+                        <div className="w-full h-full rounded-2xl bg-white border-2 border-pink-100 flex items-center justify-center relative overflow-hidden">
+                          <span className="font-serif font-bold text-2xl text-pink-400">{day}</span>
+                          {/* Decorative Sparkle */}
+                          <Sparkles size={12} className="absolute top-2 right-2 text-yellow-400 opacity-50" />
+                        </div>
+                      )
+                    ) : (
+                      <div className="w-full h-full rounded-2xl bg-gray-100 flex items-center justify-center">
+                        <Lock className="text-gray-300" size={20} />
                       </div>
-                      {isUnlocked && !completed && <ArrowRight size={20} className="animate-pulse" style={{ color: colors.primaryDeep }} />}
-                    </div>
-                  </button>
-
-                  {showActions && (
-                    <div className="px-6 pb-5 pt-2 space-y-3">
-                      <div className="flex gap-3">
-                        {showReward && dayRewards[day] && (
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const reward = dayRewards[day];
-                              const url = reward.reward_url || reward.image_url;
-                              if (url) {
-                                window.open(url, '_blank');
-                                if (!rewardViewed) {
-                                  const rewardViewedField = `day${day}_reward_viewed` as keyof typeof story;
-                                  await updateStory({ [rewardViewedField]: true } as any);
-                                }
-                              }
-                            }}
-                            className="relative flex-1 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2"
-                            style={{
-                              background: `linear-gradient(135deg, ${colors.gold}, #FFD700)`,
-                              color: 'white'
-                            }}
-                          >
-                            <Gift size={18} className="fill-current" />
-                            <span>プレゼント</span>
-                            {!rewardViewed && (
-                              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
-                                NEW
-                              </span>
-                            )}
-                          </button>
-                        )}
-
-                        {isArchiveAvailable && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(archiveUrl, '_blank');
-                            }}
-                            className="flex-1 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2"
-                            style={{
-                              background: `linear-gradient(135deg, ${colors.rose}, ${colors.primaryDeep})`,
-                              color: 'white'
-                            }}
-                          >
-                            <Play size={18} />
-                            <span>アーカイブ視聴</span>
-                          </button>
-                        )}
-                      </div>
-                      {isArchiveAvailable && archiveDeadline && (
-                        <p className="text-[10px] text-center opacity-70" style={{ color: colors.deepBrown }}>
-                          視聴期限: {formatDeadline(archiveDeadline)}まで
-                        </p>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: colors.primaryDeep }}>{subtitle}</span>
+                      {completed && <span className="text-[10px] text-white px-2 py-0.5 rounded-full" style={{ background: colors.primaryDeep }}>提出済み</span>}
+                      {!completed && assignmentDeadline && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: colors.sakura, color: colors.berry }}>
+                          提出期限: {formatDeadline(assignmentDeadline)}まで
+                        </span>
                       )}
                     </div>
+                    <h3 className="font-serif font-bold text-lg mb-1" style={{ color: colors.deepBrown }}>
+                      Day {day} {title}
+                    </h3>
+                    <p className="text-xs opacity-60" style={{ color: colors.deepBrown }}>
+                      {date}
+                    </p>
+                  </div>
+                  {isUnlocked && !completed && <ArrowRight size={20} className="animate-pulse" style={{ color: colors.primaryDeep }} />}
+                </div>
+              </button>
+
+              {showActions && (
+                <div className="px-6 pb-5 pt-2 space-y-3">
+                  <div className="flex gap-3">
+                    {showReward && dayRewards[day] ? (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const reward = dayRewards[day];
+                          const url = reward.reward_url || reward.image_url;
+                          if (url) {
+                            setActiveVideoUrl(url); // Open in Modal
+                            if (!rewardViewed) {
+                              const rewardViewedField = `day${day}_reward_viewed` as keyof typeof story;
+                              await updateStory({ [rewardViewedField]: true } as any);
+                            }
+                          }
+                        }}
+                        className="relative flex-1 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2"
+                        style={{
+                          background: `linear-gradient(135deg, ${colors.gold}, #FFD700)`,
+                          color: 'white'
+                        }}
+                      >
+                        <Gift size={18} className="fill-current" />
+                        <span>プレゼント</span>
+                        {!rewardViewed && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
+                            NEW
+                          </span>
+                        )}
+                      </button>
+                    ) : isArchiveAvailable ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveVideoUrl(archiveUrl); // Open in Modal
+                        }}
+                        className="flex-1 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2"
+                        style={{
+                          background: `linear-gradient(135deg, ${colors.rose}, ${colors.primaryDeep})`,
+                          color: 'white'
+                        }}
+                      >
+                        <Play size={18} />
+                        <span>アーカイブ視聴</span>
+                      </button>
+                    ) : null}
+                  </div>
+                  {isArchiveAvailable && archiveDeadline && (
+                    <p className="text-[10px] text-center opacity-70" style={{ color: colors.deepBrown }}>
+                      視聴期限: {formatDeadline(archiveDeadline)}まで
+                    </p>
                   )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="relative">
-          <div className="glass-card p-6 rounded-[2.5rem] shadow-xl">
-            <div className="text-center mb-5">
-              <span className="font-script text-xl block mb-1" style={{ color: colors.gold }}>Reward Collection</span>
-              <h3 className="font-serif font-bold text-lg" style={{ color: colors.berry }}>スタンプカード</h3>
-            </div>
-
-            <div className="grid grid-cols-4 gap-3 mb-5">
-              {activeDaysArray.map((day) => {
-                const completed = day === 1 ? story.day1_field1 : day === 2 ? story.day2_field1 : story.day3_field1;
-                const isJustClaimed = newlyClaimedReward === day;
-                const rewardViewedFromDb = day === 1 ? story.day1_reward_viewed : day === 2 ? story.day2_reward_viewed : story.day3_reward_viewed;
-                const rewardViewed = rewardViewedFromDb || isJustClaimed;
-                const hasReward = !!dayRewards[day];
-                const canView = completed && hasReward;
-                const isNew = canView && !rewardViewed;
-
-                return (
-                  <button
-                    key={day}
-                    onClick={async () => {
-                      if (canView) {
-                        const reward = dayRewards[day];
-                        const url = reward.reward_url || reward.image_url;
-                        if (url) {
-                          window.open(url, '_blank');
-                          if (!rewardViewed) {
-                            const rewardViewedField = `day${day}_reward_viewed` as keyof typeof story;
-                            await updateStory({ [rewardViewedField]: true } as any);
-                          }
-                        }
-                      }
-                    }}
-                    disabled={!canView}
-                    className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300
-                      ${canView ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
-                      ${isJustClaimed ? 'stamp-claimed' : ''}
-                    `}
-                    style={{
-                      background: completed
-                        ? `linear-gradient(135deg, ${colors.gold}, #FFD700)`
-                        : '#E5E5E5'
-                    }}
-                  >
-                    <Gift
-                      size={24}
-                      className={`${completed ? 'text-white fill-current' : 'text-gray-400'} ${isJustClaimed ? 'stamp-icon' : ''}`}
-                    />
-                    <span className={`text-[10px] font-bold ${completed ? 'text-white' : 'text-gray-400'}`}>
-                      Day{day}
-                    </span>
-                    {rewardViewed && (
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${isJustClaimed ? 'stamp-check' : ''}`}
-                        style={{ background: colors.primaryDeep }}>
-                        <CheckCircle2 size={14} className="text-white" />
-                      </div>
-                    )}
-                    {isNew && (
-                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
-                        NEW
-                      </div>
-                    )}
-                    {isJustClaimed && (
-                      <div className="absolute inset-0 rounded-2xl stamp-burst" />
-                    )}
-                  </button>
-                );
-              })}
-
-              {(() => {
-                const isPerfectJustClaimed = newlyClaimedReward === 'perfect';
-                const perfectViewed = story.is_gift_viewed || isPerfectJustClaimed;
-                const isPerfectNew = story.is_gift_sent && !perfectViewed;
-                return (
-                  <button
-                    onClick={() => story.is_gift_sent && setView('gift')}
-                    disabled={!story.is_gift_sent}
-                    className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300
-                      ${story.is_gift_sent ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
-                      ${isPerfectJustClaimed ? 'stamp-claimed' : ''}
-                    `}
-                    style={{
-                      background: story.is_gift_sent
-                        ? `linear-gradient(135deg, ${colors.rose}, ${colors.berry})`
-                        : '#E5E5E5'
-                    }}
-                  >
-                    <Trophy
-                      size={24}
-                      className={`${story.is_gift_sent ? 'text-white' : 'text-gray-400'} ${isPerfectJustClaimed ? 'stamp-icon' : ''}`}
-                    />
-                    <span className={`text-[8px] font-bold leading-tight text-center ${story.is_gift_sent ? 'text-white' : 'text-gray-400'}`}>
-                      Perfect
-                    </span>
-                    {isPerfectNew && (
-                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
-                        NEW
-                      </div>
-                    )}
-                    {perfectViewed && (
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${isPerfectJustClaimed ? 'stamp-check' : ''}`}
-                        style={{ background: colors.primaryDeep }}>
-                        <CheckCircle2 size={14} className="text-white" />
-                      </div>
-                    )}
-                    {isPerfectJustClaimed && (
-                      <div className="absolute inset-0 rounded-2xl stamp-burst" />
-                    )}
-                  </button>
-                );
-              })()}
-            </div>
-
-            <div className="text-center">
-              <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>
-                課題を提出すると特典プレゼントがもらえます
-              </p>
+              )}
             </div>
           </div>
-        </div>
+        );
+      })}
+    </div>
+  );
 
-        {(!userData?.diagnosis_completed && !localBrainType) && (
-          <div className="relative overflow-hidden rounded-[2rem] shadow-xl"
-            style={{ background: `linear-gradient(135deg, ${colors.gold}15, ${colors.rose}15)` }}>
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
-              <Compass size={128} style={{ color: colors.gold }} />
-            </div>
-            <div className="p-6 relative">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{ background: `${colors.gold}30` }}>
-                  <Compass size={18} style={{ color: colors.gold }} />
-                </div>
-                <span className="text-xs font-bold px-2 py-1 rounded-full"
-                  style={{ background: colors.rose, color: 'white' }}>
-                  初回限定
-                </span>
-              </div>
-              <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
-                まずは脳タイプ診断から
-              </h3>
-              <p className="text-xs opacity-70 mb-4" style={{ color: colors.deepBrown }}>
-                あなたの脳タイプを診断し、最適なアドバイスをお届けします。約2分で完了します。
-              </p>
-              <button
-                onClick={() => setShowDiagnosis(true)}
-                className="w-full py-4 rounded-xl text-white font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
-                style={{ background: `linear-gradient(to right, ${colors.gold}, ${colors.rose})` }}
-              >
-                <Compass size={20} />
-                脳タイプ診断を受ける
-              </button>
-            </div>
+  const ArchivesView = () => (
+    <div className="page-turn-in space-y-8 relative z-10 pb-10">
+      <div className="text-center pt-8 pb-4">
+        <h2 className="text-2xl font-serif font-bold text-gray-800">Archives</h2>
+        <p className="text-xs text-gray-500">過去の課題とコンテンツ</p>
+      </div>
+      <DayListComponent />
+      <div className="text-center pb-8">
+        <button
+          onClick={() => setView('home')}
+          className="px-8 py-3 rounded-full font-bold shadow-lg bg-white text-gray-600 hover:text-gray-900 border border-gray-100"
+        >
+          ダッシュボードに戻る
+        </button>
+      </div>
+    </div>
+  );
+
+  const HomeView = () => {
+    // 2. Commander Logic (Phase 2)
+    if (story && story.user_phase === 'commander') {
+      return (
+        <CommanderDashboard
+          story={story}
+          siteSettings={siteSettings}
+          onUpdate={updateStory}
+          onViewRewards={() => setView('rewards')}
+          onViewArchives={() => setView('archives')}
+          onStartCheckin={() => setShowHRVMeasurement(true)}
+          onViewBoardingPass={() => setShowBoardingPass(true)}
+          onRefresh={reloadStoryData}
+          onViewSettings={() => setView('admin')}
+          onViewGakka={() => setView('gakka')}
+          onLogout={logout}
+        />
+      );
+    }
+
+
+    return (
+      <div className="pb-24 relative min-h-screen">
+
+
+        {(!story.user_phase || story.user_phase === 'passenger') && (
+          <div className="mb-0">
+            <PassengerDashboard
+              story={story}
+              daySettings={daySettings}
+              siteSettings={siteSettings}
+              onUpdate={updateStory}
+              onStartDiagnosis={() => setShowDiagnosis(true)}
+              onStartTask={(day) => setView(`day${day}` as any)}
+              onViewSettings={() => setView('admin')}
+              onLogout={logout}
+              displayName={userData?.display_name}
+              onPromotion={async () => {
+                await updateStory({ user_phase: 'commander' });
+                if (!unlockedDays.includes(1)) {
+                  await updateStory({ unlocked_days: [1], is_locked: false });
+                }
+              }}
+            />
           </div>
         )}
 
-        {(userData?.diagnosis_completed || localBrainType) && (() => {
-          const brainType = userData?.brain_type || localBrainType;
-          const typeInfo: Record<string, { name: string; description: string; color: string; icon: string }> = {
-            left_3d: {
-              name: 'シン（戦略家）',
-              description: '最短ルートを弾き出し、論理で戦略を練る参謀です',
-              color: '#3B82F6',
-              icon: 'strategy'
-            },
-            left_2d: {
-              name: 'マモル（守護者）',
-              description: 'リスクを管理し、安全と信念を守る保安官であり職人です',
-              color: '#10B981',
-              icon: 'precision'
-            },
-            right_3d: {
-              name: 'ソラ（冒険家）',
-              description: '未来を見るビジョナリー。常にワクワクを指し示します',
-              color: '#FBBF24',
-              icon: 'passion'
-            },
-            right_2d: {
-              name: 'ピク（癒やし手）',
-              description: '空気を読み、みんなとのつながりを大切にするムードメーカーです',
-              color: '#EC4899',
-              icon: 'harmony'
-            }
-          };
-          const info = brainType ? typeInfo[brainType] : typeInfo.right_2d;
+        {/* Show extended content only for Commander phase */}
+        {story.user_phase === 'commander' && (
+          <div className="page-turn-in space-y-8 relative z-10">
+            <div className="grid grid-cols-1 gap-5">
+              {/* Day List */}
+              <DayListComponent />
+            </div>
 
-          return (
-            <div className="relative overflow-hidden rounded-[2rem] shadow-xl"
-              style={{ background: `linear-gradient(135deg, ${info.color}15, ${colors.cream})` }}>
-              <div className="absolute top-0 right-0 w-40 h-40 opacity-5">
-                <Compass size={160} style={{ color: info.color }} />
+            <div className="relative">
+              <div className="glass-card p-6 rounded-[2.5rem] shadow-xl">
+                <div className="text-center mb-5">
+                  <span className="font-script text-xl block mb-1" style={{ color: colors.gold }}>Reward Collection</span>
+                  <h3 className="font-serif font-bold text-lg" style={{ color: colors.berry }}>スタンプカード</h3>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 mb-5">
+                  {activeDaysArray.map((day) => {
+                    const completed = day === 1 ? story.day1_field1 : day === 2 ? story.day2_field1 : story.day3_field1;
+                    const isJustClaimed = newlyClaimedReward === day;
+                    const rewardViewedFromDb = day === 1 ? story.day1_reward_viewed : day === 2 ? story.day2_reward_viewed : story.day3_reward_viewed;
+                    const rewardViewed = rewardViewedFromDb || isJustClaimed;
+                    const hasReward = !!dayRewards[day];
+                    const canView = completed && hasReward;
+                    const isNew = canView && !rewardViewed;
+
+                    return (
+                      <button
+                        key={day}
+                        onClick={async () => {
+                          if (canView) {
+                            const reward = dayRewards[day];
+                            const url = reward.reward_url || reward.image_url;
+                            if (url) {
+                              setActiveVideoUrl(url); // Open in Modal
+                              if (!rewardViewed) {
+                                const rewardViewedField = `day${day}_reward_viewed` as keyof typeof story;
+                                await updateStory({ [rewardViewedField]: true } as any);
+                              }
+                            }
+                          }
+                        }}
+                        disabled={!canView}
+                        className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300
+                      ${canView ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
+                      ${isJustClaimed ? 'stamp-claimed' : ''}
+                    `}
+                        style={{
+                          background: completed
+                            ? `linear-gradient(135deg, ${colors.gold}, #FFD700)`
+                            : '#E5E5E5'
+                        }}
+                      >
+                        <Gift
+                          size={24}
+                          className={`${completed ? 'text-white fill-current' : 'text-gray-400'} ${isJustClaimed ? 'stamp-icon' : ''}`}
+                        />
+                        <span className={`text-[10px] font-bold ${completed ? 'text-white' : 'text-gray-400'}`}>
+                          Day{day}
+                        </span>
+                        {rewardViewed && (
+                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${isJustClaimed ? 'stamp-check' : ''}`}
+                            style={{ background: colors.primaryDeep }}>
+                            <CheckCircle2 size={14} className="text-white" />
+                          </div>
+                        )}
+                        {isNew && (
+                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
+                            NEW
+                          </div>
+                        )}
+                        {isJustClaimed && (
+                          <div className="absolute inset-0 rounded-2xl stamp-burst" />
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {(() => {
+                    const isPerfectJustClaimed = newlyClaimedReward === 'perfect';
+                    const perfectViewed = story.is_gift_viewed || isPerfectJustClaimed;
+                    const isPerfectNew = story.is_gift_sent && !perfectViewed;
+                    return (
+                      <button
+                        onClick={() => story.is_gift_sent && setView('gift')}
+                        disabled={!story.is_gift_sent}
+                        className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300
+                      ${story.is_gift_sent ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
+                      ${isPerfectJustClaimed ? 'stamp-claimed' : ''}
+                    `}
+                        style={{
+                          background: story.is_gift_sent
+                            ? `linear-gradient(135deg, ${colors.rose}, ${colors.berry})`
+                            : '#E5E5E5'
+                        }}
+                      >
+                        <Trophy
+                          size={24}
+                          className={`${story.is_gift_sent ? 'text-white' : 'text-gray-400'} ${isPerfectJustClaimed ? 'stamp-icon' : ''}`}
+                        />
+                        <span className={`text-[8px] font-bold leading-tight text-center ${story.is_gift_sent ? 'text-white' : 'text-gray-400'}`}>
+                          Perfect
+                        </span>
+                        {isPerfectNew && (
+                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
+                            NEW
+                          </div>
+                        )}
+                        {perfectViewed && (
+                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${isPerfectJustClaimed ? 'stamp-check' : ''}`}
+                            style={{ background: colors.primaryDeep }}>
+                            <CheckCircle2 size={14} className="text-white" />
+                          </div>
+                        )}
+                        {isPerfectJustClaimed && (
+                          <div className="absolute inset-0 rounded-2xl stamp-burst" />
+                        )}
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                <div className="text-center">
+                  <p className="text-[10px] opacity-60" style={{ color: colors.deepBrown }}>
+                    課題を提出すると特典プレゼントがもらえます
+                  </p>
+                </div>
               </div>
-              <div className="p-6 relative">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${info.color}, ${info.color}90)` }}>
-                    <Compass size={32} className="text-white" />
+            </div>
+
+            {(!userData?.diagnosis_completed && !localBrainType) && (
+              <div className="relative overflow-hidden rounded-[2rem] shadow-xl"
+                style={{ background: `linear-gradient(135deg, ${colors.gold}15, ${colors.rose}15)` }}>
+                <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
+                  <Compass size={128} style={{ color: colors.gold }} />
+                </div>
+                <div className="p-6 relative">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ background: `${colors.gold}30` }}>
+                      <Compass size={18} style={{ color: colors.gold }} />
+                    </div>
+                    <span className="text-xs font-bold px-2 py-1 rounded-full"
+                      style={{ background: colors.rose, color: 'white' }}>
+                      初回限定
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold tracking-wider mb-1 opacity-60" style={{ color: colors.deepBrown }}>
-                      あなたの脳タイプ
-                    </p>
-                    <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
-                      {info.name}
-                    </h3>
-                    <p className="text-xs leading-relaxed opacity-70" style={{ color: colors.deepBrown }}>
-                      {info.description}
+                  <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
+                    まずは脳タイプ診断から
+                  </h3>
+                  <p className="text-xs opacity-70 mb-4" style={{ color: colors.deepBrown }}>
+                    あなたの脳タイプを診断し、最適なアドバイスをお届けします。約2分で完了します。
+                  </p>
+                  <button
+                    onClick={() => setShowDiagnosis(true)}
+                    className="w-full py-4 rounded-xl text-white font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                    style={{ background: `linear-gradient(to right, ${colors.gold}, ${colors.rose})` }}
+                  >
+                    <Compass size={20} />
+                    脳タイプ診断を受ける
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {(story.brain_type || localBrainType) && (() => {
+              const brainType = story.brain_type || localBrainType;
+              const typeInfo: Record<string, { name: string; description: string; color: string; icon: string }> = {
+                left_3d: {
+                  name: 'シン（戦略家）',
+                  description: '最短ルートを弾き出し、論理で戦略を練る参謀です',
+                  color: '#3B82F6',
+                  icon: 'strategy'
+                },
+                left_2d: {
+                  name: 'マモル（守護者）',
+                  description: 'リスクを管理し、安全と信念を守る保安官であり職人です',
+                  color: '#10B981',
+                  icon: 'precision'
+                },
+                right_3d: {
+                  name: 'ソラ（冒険家）',
+                  description: '未来を見るビジョナリー。常にワクワクを指し示します',
+                  color: '#FBBF24',
+                  icon: 'passion'
+                },
+                right_2d: {
+                  name: 'ピク（癒やし手）',
+                  description: '空気を読み、みんなとのつながりを大切にするムードメーカーです',
+                  color: '#EC4899',
+                  icon: 'harmony'
+                }
+              };
+              const info = (brainType && typeInfo[brainType]) ? typeInfo[brainType] : null;
+              if (!info) return null;
+
+              return (
+                <div className="relative overflow-hidden rounded-[2rem] shadow-xl"
+                  style={{ background: `linear-gradient(135deg, ${info.color}15, ${colors.cream})` }}>
+                  <div className="absolute top-0 right-0 w-40 h-40 opacity-5">
+                    <Compass size={160} style={{ color: info.color }} />
+                  </div>
+                  <div className="p-6 relative">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${info.color}, ${info.color}90)` }}>
+                        <Compass size={32} className="text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold tracking-wider mb-1 opacity-60" style={{ color: colors.deepBrown }}>
+                          あなたの脳タイプ
+                        </p>
+                        <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
+                          {info.name}
+                        </h3>
+                        <p className="text-xs leading-relaxed opacity-70" style={{ color: colors.deepBrown }}>
+                          {info.description}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Only show re-diagnosis if brain type exists */}
+                    {story.brain_type && (
+                      <button
+                        onClick={() => setShowDiagnosis(true)}
+                        className="w-full py-3 rounded-xl font-medium text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                        style={{
+                          background: `${info.color}10`,
+                          color: info.color,
+                          border: `1px solid ${info.color}30`
+                        }}
+                      >
+                        <RefreshCw size={16} />
+                        再診断する
+                      </button>
+                    )}
+                    <p className="text-[10px] text-center opacity-50 mt-3" style={{ color: colors.deepBrown }}>
+                      この脳タイプに合わせたアドバイスをお届けします
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowDiagnosis(true)}
-                  className="w-full py-3 rounded-xl font-medium text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-                  style={{
-                    background: `${info.color}10`,
-                    color: info.color,
-                    border: `1px solid ${info.color}30`
-                  }}
-                >
-                  <RefreshCw size={16} />
-                  再診断する
-                </button>
-                <p className="text-[10px] text-center opacity-50 mt-3" style={{ color: colors.deepBrown }}>
-                  この脳タイプに合わせたアドバイスをお届けします
+              );
+            })()}
+
+            {/* 指先チェックへのリンク */}
+            <div className="relative overflow-hidden rounded-[2rem] shadow-xl glass-card">
+              <div className="p-6 relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg, ${colors.sage}, ${colors.cream})` }}>
+                    <Activity size={18} className="text-white" />
+                  </div>
+                  <span className="text-xs font-bold px-2 py-1 rounded-full text-white"
+                    style={{ background: colors.sage }}>
+                    New Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
+                  ステート・チェックイン
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  今のあなたのステート（状態）をチェックし、最適な「未来設定」へのゲートを開きます。
                 </p>
+                <button
+                  onClick={() => setShowHRVMeasurement(true)}
+                  className="w-full py-4 rounded-xl text-white font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                  style={{ background: `linear-gradient(to right, ${colors.sage}, #8BA88B)` }}
+                >
+                  <Activity size={20} />
+                  計測を開始する
+                </button>
               </div>
             </div>
-          );
-        })()}
 
-        {/* 指先チェックへのリンク */}
-        <div className="relative overflow-hidden rounded-[2rem] shadow-xl glass-card">
-          <div className="p-6 relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${colors.sage}, ${colors.cream})` }}>
-                <Activity size={18} className="text-white" />
-              </div>
-              <span className="text-xs font-bold px-2 py-1 rounded-full text-white"
-                style={{ background: colors.sage }}>
-                New Feature
-              </span>
-            </div>
-            <h3 className="font-bold text-lg mb-2" style={{ color: colors.deepBrown }}>
-              ステート・チェックイン
-            </h3>
-            <p className="text-gray-600 mb-6 leading-relaxed">
-              今のあなたのステート（状態）をチェックし、最適な「未来設定」へのゲートを開きます。
-            </p>
-            <button
-              onClick={() => setShowHRVMeasurement(true)}
-              className="w-full py-4 rounded-xl text-white font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
-              style={{ background: `linear-gradient(to right, ${colors.sage}, #8BA88B)` }}
-            >
-              <Activity size={20} />
-              計測を開始する
-            </button>
-          </div>
-        </div>
-
-        <div className="px-2 pb-4">
-          <div className="bg-white/40 p-6 rounded-[2.5rem] border border-white flex flex-col items-center gap-4 text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ background: colors.sakura }}>
-              {siteSettings?.banner_image_url ? (
-                <img src={siteSettings.banner_image_url} alt="バナー画像" className="w-6 h-6 object-contain" />
-              ) : (
-                <Heart style={{ color: colors.rose }} size={24} />
-              )}
-            </div>
-            <p className="text-[11px] leading-relaxed opacity-70" style={{ color: colors.deepBrown }}>
-              {siteSettings?.banner_text || '個別セッションでは、この物語を一緒に読み解き、'}<br />
-              {siteSettings?.banner_subtext || 'あなたの魂を癒す「魔法のアファメーション」を贈ります。'}
-            </p>
-            {!story.is_gift_sent && (
-              <>
-                {(!story.is_gift_sent && siteSettings?.banner_link_url) ? (
-                  <a
-                    href={`${siteSettings.banner_link_url}${siteSettings.banner_link_url.includes('?') ? '&' : '?'}custom_id=${userData?.line_user_id || ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full block text-center py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
-                    style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
-                  >
-                    {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
-                  </a>
-                ) : (
-                  <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="w-full py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
-                    style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
-                  >
-                    {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
-                  </button>
+            <div className="px-2 pb-4">
+              <div className="bg-white/40 p-6 rounded-[2.5rem] border border-white flex flex-col items-center gap-4 text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ background: colors.sakura }}>
+                  {siteSettings?.banner_image_url ? (
+                    <img src={siteSettings.banner_image_url} alt="バナー画像" className="w-6 h-6 object-contain" />
+                  ) : (
+                    <Heart style={{ color: colors.rose }} size={24} />
+                  )}
+                </div>
+                <p className="text-[11px] leading-relaxed opacity-70" style={{ color: colors.deepBrown }}>
+                  {siteSettings?.banner_text || '個別セッションでは、この物語を一緒に読み解き、'}<br />
+                  {siteSettings?.banner_subtext || 'あなたの魂を癒す「魔法のアファメーション」を贈ります。'}
+                </p>
+                {!story.is_gift_sent && (
+                  <>
+                    {(!story.is_gift_sent && siteSettings?.banner_link_url) ? (
+                      <a
+                        href={`${siteSettings.banner_link_url}${siteSettings.banner_link_url.includes('?') ? '&' : '?'}custom_id=${userData?.line_user_id || ''}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full block text-center py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                        style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
+                      >
+                        {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="w-full py-4 rounded-full text-white font-bold text-sm shadow-xl hover:opacity-90 active:scale-95 transition-all"
+                        style={{ background: `linear-gradient(to right, ${colors.rose}, ${colors.berry})` }}
+                      >
+                        {siteSettings?.banner_button_text || '物語の続きをセッションで描く'}
+                      </button>
+                    )}
+                  </>
                 )}
-              </>
-            )}
 
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {!story.is_gift_sent && story.progress === 100 && (
-          <button
-            onClick={() => updateStory({ is_gift_sent: true })}
-            className="w-full py-6 rounded-full shadow-2xl flex items-center justify-center gap-3
+            {!story.is_gift_sent && story.progress === 100 && (
+              <button
+                onClick={() => updateStory({ is_gift_sent: true })}
+                className="w-full py-6 rounded-full shadow-2xl flex items-center justify-center gap-3
                        font-bold text-white text-sm tracking-[0.2em] btn-bounce"
-            style={{ background: `linear-gradient(135deg, ${colors.rose}, ${colors.gold})` }}>
-            <Trophy size={20} />
-            エピローグを開く
-          </button>
+                style={{ background: `linear-gradient(135deg, ${colors.rose}, ${colors.gold})` }}>
+                <Trophy size={20} />
+                エピローグを開く
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -4124,6 +4564,8 @@ const App = () => {
     const [showAiMessage, setShowAiMessage] = useState(false);
     const isSubmittingRef = useRef(false);
     const [isJustSubmitted, setIsJustSubmitted] = useState(false);
+    const [showMission, setShowMission] = useState(false);
+    const [missionSubmitted, setMissionSubmitted] = useState(false);
 
     useEffect(() => {
       if (story.id !== storyIdRef.current) {
@@ -4257,15 +4699,49 @@ const App = () => {
           />
         )}
 
-        {daySettings[day]?.youtube_url && (
-          <div className="px-2">
+        {/* Video Player with Mission Ignition - uses demo video if no URL set for Day 1 */}
+        {(daySettings[day]?.youtube_url || day === 1) && (
+          <div className="px-2 space-y-4">
             <YouTubePlayer
-              videoUrl={daySettings[day].youtube_url!}
+              videoUrl={daySettings[day]?.youtube_url || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
               brainType={userData?.brain_type || localBrainType}
+              completionThreshold={0.9}
+              onTimeThreshold={() => {
+                if (!showMission && !missionSubmitted) {
+                  setShowMission(true);
+                }
+              }}
               onWatchComplete={() => {
                 console.log(`Day ${day} video 90% watched!`);
+                // Also trigger mission if not already shown
+                if (!showMission && !missionSubmitted) {
+                  setShowMission(true);
+                }
               }}
             />
+
+            {/* Mission Ignition - appears after video threshold */}
+            {day === 1 && showMission && (
+              <MissionIgnition
+                onSubmit={async (answer) => {
+                  console.log('Mission answer submitted:', answer);
+                  // Save to Supabase if needed
+                  try {
+                    await supabase.from('mission_responses').insert({
+                      line_user_id: userData?.line_user_id || story.id,
+                      day: 1,
+                      mission_type: 'first_ignition',
+                      response: answer,
+                      created_at: new Date().toISOString()
+                    });
+                  } catch (e) {
+                    console.log('Mission table may not exist, skipping save:', e);
+                  }
+                  setMissionSubmitted(true);
+                }}
+                audioUrl="https://example.com/night-flight-log-track2.mp3"
+              />
+            )}
           </div>
         )}
 
@@ -4870,95 +5346,138 @@ const App = () => {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen sakura-gradient flex items-center justify-center overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 flex items-center justify-center overflow-hidden relative">
         <StyleTag />
-        <WaveBackground />
+
+        {/* Animated Stars Background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(50)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                opacity: Math.random() * 0.7 + 0.3,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Cosmic Gate Ring */}
+        <div className="absolute w-[500px] h-[500px] border border-cyan-500/20 rounded-full animate-spin" style={{ animationDuration: '60s' }} />
+        <div className="absolute w-[400px] h-[400px] border border-indigo-500/30 rounded-full animate-spin" style={{ animationDuration: '45s', animationDirection: 'reverse' }} />
+        <div className="absolute w-[300px] h-[300px] border border-purple-500/20 rounded-full animate-spin" style={{ animationDuration: '30s' }} />
+
         <div className="relative z-10 w-full max-w-[400px] mx-4">
-          <div className="glass-card p-8 rounded-3xl text-center space-y-8">
+          <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl shadow-indigo-500/20 text-center space-y-8">
+
+            {/* Logo & Title */}
             <div className="space-y-4">
-              <div className="inline-block">
-                <Stars size={40} style={{ color: colors.gold }} className="animate-pulse" />
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/50">
+                <Rocket size={36} className="text-white" />
               </div>
-              <h1 className="text-2xl font-serif font-bold leading-relaxed" style={{ color: colors.berry }}>
-                {siteSettings?.site_title || '絵本で「未来を設定する」ノート'}
-              </h1>
-              <p className="text-sm opacity-70 tracking-widest font-medium" style={{ color: colors.deepBrown }}>
-                {siteSettings?.site_subtitle || '2026年、最高の物語をここから。'}
-              </p>
+              <div className="space-y-1">
+                <p className="text-[10px] tracking-[0.3em] text-cyan-400 font-bold">TALENTFLOW</p>
+                <h1 className="text-2xl font-bold text-white tracking-wider">
+                  SPACELINES
+                </h1>
+                <p className="text-xs text-white/50 tracking-widest">
+                  PASSENGER GATE
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-sm" style={{ color: colors.deepBrown }}>
-                LINEアカウントでログインして
+            {/* Gate Status */}
+            <div className="py-4 px-6 bg-slate-800/50 rounded-2xl border border-white/10 space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                <span className="text-xs text-emerald-400 font-medium tracking-wider">GATE OPEN</span>
+              </div>
+              <p className="text-sm text-white/70">
+                LINEアカウントで搭乗手続きを完了し
                 <br />
-                あなたのストーリーを始めましょう
+                <span className="text-cyan-300">あなただけの航海</span>を始めましょう
               </p>
             </div>
 
+            {/* LINE Login Button */}
             <button
               onClick={login}
               disabled={!isInitialized}
-              className="w-full py-4 rounded-2xl font-bold text-white text-lg transition-all hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="w-full py-4 rounded-2xl font-bold text-white text-lg transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-green-500/30 active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 relative overflow-hidden group"
               style={{ background: '#06C755' }}
             >
-              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current relative z-10">
                 <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.105.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
               </svg>
-              {!isInitialized ? '初期化中...' : 'LINEでログイン'}
+              <span className="relative z-10">{!isInitialized ? '初期化中...' : '搭乗手続きを開始'}</span>
             </button>
 
+            {/* Demo Mode */}
             <button
               onClick={() => {
                 const url = new URL(window.location.href);
                 url.searchParams.set('demo', 'true');
                 window.location.href = url.toString();
               }}
-              className="w-full py-3 rounded-xl font-medium text-sm transition-all hover:bg-gray-100 border-2 border-gray-200"
-              style={{ color: colors.deepBrown }}
+              className="w-full py-3 rounded-xl font-medium text-sm transition-all hover:bg-white/5 border border-white/20 text-white/60 hover:text-white/80"
             >
-              デモモードで確認
+              デモフライトで体験
             </button>
 
             {liffError && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-400">
                 {liffError}
               </p>
             )}
+
+            {/* Footer */}
+            <p className="text-[10px] text-white/30 tracking-wider">
+              ✦ 21-DAY TRANSFORMATION JOURNEY ✦
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
+  const isCommander = story.user_phase === 'commander';
+  const backgroundClass = isCommander ? 'space-gradient' : 'sakura-gradient';
+  const textColorClass = isCommander ? 'text-white' : '';
+
   return (
-    <div className={`min-h-screen sakura-gradient overflow-x-hidden pb-10 selection:bg-pink-200 ${view === 'admin' ? '' : 'flex justify-center'}`}>
+    <div className={`min-h-screen ${backgroundClass} overflow-x-hidden pb-10 selection:bg-pink-200 ${view === 'admin' ? '' : 'flex justify-center'} ${textColorClass}`}>
       <StyleTag />
       {view !== 'admin' && <WaveBackground />}
 
       <div className={`w-full min-h-screen flex flex-col relative ${view === 'admin' ? 'max-w-[1400px] mx-auto px-8 py-6' : 'max-w-[520px] p-6'}`}>
 
-        {view !== 'admin' && (
+        {/* Hide global header for Commander (has its own) and Passenger (clean look) */}
+        {view !== 'admin' && view !== 'home' && (
           <header className="py-8 text-center relative z-10">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 opacity-5">
-              <Cloud size={120} style={{ color: colors.rose }} />
+              <Cloud size={120} style={{ color: isCommander ? '#ffffff' : colors.rose }} />
             </div>
             <button
               onClick={() => setView(view === 'admin' ? 'home' : 'admin')}
               className="absolute top-4 right-4 p-2 rounded-full glass-card hover:scale-110 transition-transform duration-300 z-50"
-              style={{ background: `linear-gradient(135deg, ${colors.sakura}, ${colors.cream})` }}
+              style={{ background: isCommander ? 'rgba(255,255,255,0.1)' : `linear-gradient(135deg, ${colors.sakura}, ${colors.cream})` }}
             >
-              <Settings size={20} style={{ color: colors.berry }} />
+              <Settings size={20} style={{ color: isCommander ? '#ffffff' : colors.berry }} />
             </button>
             <div className="relative space-y-3">
               <div className="inline-block">
-                <Stars size={28} style={{ color: colors.gold }} className="animate-pulse" />
+                <Stars size={28} style={{ color: isCommander ? '#fbbf24' : colors.gold }} className="animate-pulse" />
               </div>
               <h1 className="text-2xl font-serif font-bold leading-relaxed"
-                style={{ color: colors.berry }}>
+                style={{ color: isCommander ? '#ffffff' : colors.berry }}>
                 {siteSettings?.site_title || '絵本で「未来を設定する」ノート'}
               </h1>
               <div className="space-y-1.5">
-                <span className="text-xs opacity-70 tracking-widest font-medium block" style={{ color: colors.deepBrown }}>
+                <span className="text-xs opacity-70 tracking-widest font-medium block" style={{ color: isCommander ? 'rgba(255,255,255,0.8)' : colors.deepBrown }}>
                   {siteSettings?.site_subtitle || '2026年、最高の物語をここから。'}
                 </span>
               </div>
@@ -4966,7 +5485,8 @@ const App = () => {
           </header>
         )}
 
-        {view !== 'admin' && (
+        {/* Hide reservation/weather for Commander (has its own) and Passenger (clean look) */}
+        {view !== 'admin' && view !== 'home' && (
           <div className="space-y-4 mb-6">
             <ReservationStatus />
             <WeatherScoreBar />
@@ -4976,6 +5496,34 @@ const App = () => {
         <main className="flex-1 relative z-10">
           {view === 'admin' && <AdminView />}
           {view === 'home' && <HomeView />}
+          {view === 'gakka' && story && (
+            <div className="relative">
+              {/* Back to Commander Dashboard button */}
+              <button
+                onClick={() => setView('home')}
+                className="absolute top-2 left-2 z-20 flex items-center gap-2 px-3 py-2 bg-white/10 backdrop-blur-md rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-all text-sm border border-white/20"
+              >
+                ← 実技モードへ
+              </button>
+              <PassengerDashboard
+                story={story}
+                daySettings={daySettings}
+                siteSettings={siteSettings}
+                onUpdate={updateStory}
+                onStartDiagnosis={() => setShowDiagnosis(true)}
+                onStartTask={(day) => setView(`day${day}` as any)}
+                onViewSettings={() => setView('admin')}
+                onPromotion={async () => {
+                  await updateStory({ user_phase: 'commander' });
+                  if (!unlockedDays.includes(1)) {
+                    await updateStory({ unlocked_days: [1], is_locked: false });
+                  }
+                  setView('home');
+                }}
+              />
+            </div>
+          )}
+          {view === 'archives' && <ArchivesView />}
           {view === 'rewards' && <RewardsCollectionView />}
           {view === 'vision' && <VisionView />}
           {view === 'day1' && daySettings[1] && (
@@ -5117,6 +5665,20 @@ const App = () => {
           onClose={() => setShowHRVMeasurement(false)}
           onComplete={async (metrics, feedback) => {
             console.log('HRV Measurement completed:', metrics, feedback);
+
+            // Update Story Progress (Daily Logs)
+            const today = new Date().toISOString().split('T')[0];
+            const newLogs = {
+              ...(story.daily_logs || {}),
+              [today]: {
+                score: metrics.score,
+                type: metrics.type,
+                timestamp: new Date().toISOString()
+              }
+            };
+            await updateStory({ daily_logs: newLogs });
+            await reloadStoryData();
+
             // Save to Supabase
             try {
               await supabase.from('health_metrics').insert({
@@ -5152,7 +5714,13 @@ const App = () => {
           onComplete={async (brainType) => {
             console.log('Diagnosis completed:', brainType);
             localStorage.setItem('brainType', brainType);
+            localStorage.setItem('lastSeenBrainType', brainType); // Prevent boarding pass from showing again
             setLocalBrainType(brainType);
+
+            // Sync with Story Data (Supabase)
+            await updateStory({ brain_type: brainType });
+            await reloadStoryData();
+
             setShowDiagnosis(false);
             if (userData) {
               await refreshUserData();
@@ -5166,6 +5734,14 @@ const App = () => {
         <div className="font-medium">Powered by Gamifinity</div>
         <div>Produced by Mitsue Nomura</div>
       </div>
+
+      {/* Digital Boarding Pass (Worldview Integration) */}
+      {showBoardingPass && (
+        <BoardingPass story={story} onClose={handleCloseBoardingPass} />
+      )}
+
+      {/* Video Modal (In-App Player) */}
+      <VideoModal url={activeVideoUrl} onClose={() => setActiveVideoUrl(null)} />
     </div>
   );
 };

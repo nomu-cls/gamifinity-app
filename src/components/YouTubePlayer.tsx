@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import YouTube, { YouTubeProps, YouTubePlayer as YTPlayer } from 'react-youtube';
-import { Play, Pause, CheckCircle2, Compass } from 'lucide-react';
+import { Play, Pause, CheckCircle2 } from 'lucide-react';
 
 interface YouTubePlayerProps {
   videoUrl: string;
   brainType?: string | null;
   onWatchComplete?: () => void;
+  onTimeThreshold?: (currentTime: number) => void;
+  timeThresholdSeconds?: number;
   completionThreshold?: number;
 }
+
 
 const extractVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -25,7 +28,7 @@ const extractVideoId = (url: string): string | null => {
   return null;
 };
 
-const brainTypeMessages: Record<string, { title: string; message: string; color: string }> = {
+const _brainTypeMessages: Record<string, { title: string; message: string; color: string }> = {
   left_3d: {
     title: '本質（左脳3次元）',
     message: '今のあなたの脳は本質を掴むのに最適な状態です',
@@ -50,8 +53,10 @@ const brainTypeMessages: Record<string, { title: string; message: string; color:
 
 const YouTubePlayer = ({
   videoUrl,
-  brainType,
+  brainType: _brainType,
   onWatchComplete,
+  onTimeThreshold,
+  timeThresholdSeconds,
   completionThreshold = 0.9
 }: YouTubePlayerProps) => {
   const [isReady, setIsReady] = useState(false);
@@ -60,14 +65,48 @@ const YouTubePlayer = ({
   const [duration, setDuration] = useState(0);
   const [hasCompleted, setHasCompleted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [showSkipButton, setShowSkipButton] = useState(false);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const completedRef = useRef(false);
+  const thresholdTriggeredRef = useRef(false);
+  const skipTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const videoId = extractVideoId(videoUrl);
 
+  // Show skip button after 30 seconds if video hasn't been played
+  useEffect(() => {
+    skipTimerRef.current = setTimeout(() => {
+      if (!isPlaying && !hasCompleted) {
+        setShowSkipButton(true);
+      }
+    }, 30000); // 30 seconds
+
+    return () => {
+      if (skipTimerRef.current) {
+        clearTimeout(skipTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Hide skip button if video starts playing
+  useEffect(() => {
+    if (isPlaying) {
+      setShowSkipButton(false);
+    }
+  }, [isPlaying]);
+
+  const handleSkipToComplete = () => {
+    completedRef.current = true;
+    setHasCompleted(true);
+    setShowSkipButton(false);
+    console.log('User skipped video due to playback issues');
+    onWatchComplete?.();
+  };
+
+
   const checkProgress = useCallback(() => {
-    if (!playerRef.current || completedRef.current) return;
+    if (!playerRef.current) return;
 
     try {
       const currentTime = playerRef.current.getCurrentTime();
@@ -78,6 +117,21 @@ const YouTubePlayer = ({
         setProgress(currentProgress);
         setDuration(totalDuration);
 
+        // Time threshold trigger (for mission form)
+        if (timeThresholdSeconds && onTimeThreshold && !thresholdTriggeredRef.current) {
+          // Use seconds directly, or calculate from end if negative
+          const targetTime = timeThresholdSeconds > 0
+            ? timeThresholdSeconds
+            : totalDuration + timeThresholdSeconds; // e.g., -180 = 3 min before end
+
+          if (currentTime >= targetTime) {
+            thresholdTriggeredRef.current = true;
+            console.log(`Time threshold ${timeThresholdSeconds}s reached at ${currentTime.toFixed(1)}s`);
+            onTimeThreshold(currentTime);
+          }
+        }
+
+        // Completion threshold trigger
         if (currentProgress >= completionThreshold && !completedRef.current) {
           completedRef.current = true;
           setHasCompleted(true);
@@ -88,7 +142,8 @@ const YouTubePlayer = ({
     } catch (error) {
       console.error('Error checking progress:', error);
     }
-  }, [completionThreshold, onWatchComplete]);
+  }, [completionThreshold, onWatchComplete, onTimeThreshold, timeThresholdSeconds]);
+
 
   useEffect(() => {
     return () => {
@@ -135,7 +190,11 @@ const YouTubePlayer = ({
       modestbranding: 1,
       iv_load_policy: 3,
       playsinline: 1,
-      origin: window.location.origin
+      origin: window.location.origin,
+      // Prevent end screen with related videos
+      fs: 1,
+      controls: 1,
+      disablekb: 0
     }
   };
 
@@ -163,8 +222,6 @@ const YouTubePlayer = ({
     );
   }
 
-  const brainInfo = brainType ? brainTypeMessages[brainType] : null;
-
   return (
     <div className="relative w-full rounded-2xl overflow-hidden shadow-xl bg-black">
       <div className="aspect-video relative">
@@ -188,25 +245,7 @@ const YouTubePlayer = ({
           </div>
         )}
 
-        {brainInfo && isPlaying && (
-          <div
-            className="absolute top-4 right-4 glass-card px-4 py-3 rounded-xl max-w-xs animate-fade-in"
-            style={{
-              background: `linear-gradient(135deg, ${brainInfo.color}20, white)`,
-              border: `1px solid ${brainInfo.color}40`
-            }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Compass size={16} style={{ color: brainInfo.color }} />
-              <span className="text-xs font-bold" style={{ color: brainInfo.color }}>
-                {brainInfo.title}
-              </span>
-            </div>
-            <p className="text-[10px] leading-relaxed text-gray-700">
-              {brainInfo.message}
-            </p>
-          </div>
-        )}
+        {/* Brain type overlay removed per user request */}
 
         {hasCompleted && (
           <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-lg">
@@ -259,6 +298,19 @@ const YouTubePlayer = ({
           </div>
         </div>
       </div>
+
+      {/* Skip Button - appears after 30 seconds if video can't play */}
+      {showSkipButton && !hasCompleted && (
+        <div className="bg-gradient-to-r from-amber-900/30 to-rose-900/30 px-4 py-3 border-t border-amber-500/20">
+          <button
+            onClick={handleSkipToComplete}
+            className="w-full py-2 text-sm text-amber-200 hover:text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <span>動画が見れない場合はこちら</span>
+            <span className="text-xs bg-white/10 px-2 py-0.5 rounded">スキップ</span>
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes fade-in {

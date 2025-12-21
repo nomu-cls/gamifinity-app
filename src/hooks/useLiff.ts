@@ -178,6 +178,20 @@ export function useLiff(liffId?: string): UseLiffReturn {
         await liff.init({ liffId: effectiveLiffId });
         setIsInitialized(true);
 
+        // App routing: Check if we should redirect to another app
+        const appParam = urlParams.get('app');
+        if (appParam === 'dreammaker') {
+          // Redirect to DreamMaker with LIFF context
+          const dreamMakerUrl = import.meta.env.VITE_DREAMMAKER_URL || 'https://dreammaker-app.vercel.app';
+          // Preserve query params except 'app'
+          const newParams = new URLSearchParams(urlParams);
+          newParams.delete('app');
+          const queryString = newParams.toString();
+          const redirectUrl = queryString ? `${dreamMakerUrl}?${queryString}` : dreamMakerUrl;
+          window.location.href = redirectUrl;
+          return;
+        }
+
         if (liff.isLoggedIn()) {
           setIsLoggedIn(true);
           const liffProfile = await liff.getProfile();
@@ -203,7 +217,7 @@ export function useLiff(liffId?: string): UseLiffReturn {
 
   const login = useCallback(() => {
     if (isInitialized && !isLoggedIn) {
-      liff.login();
+      liff.login({ redirectUri: window.location.href });
     }
   }, [isInitialized, isLoggedIn]);
 

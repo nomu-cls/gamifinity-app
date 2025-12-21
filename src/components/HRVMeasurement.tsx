@@ -116,12 +116,13 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
   };
 
   const getBgColor = () => {
+    if (phase === 'intro') return 'bg-white';
     if (phase === 'q1') return 'bg-blue-50';
     if (phase === 'q2') return 'bg-emerald-50';
     if (phase === 'q3') return 'bg-orange-50';
     if (phase === 'result' && totalScore >= 85) return 'bg-yellow-50';
     if (phase === 'result' && totalScore < 40) return 'bg-gray-100';
-    return 'bg-sage-50';
+    return 'bg-white';
   };
 
   return (
@@ -140,15 +141,15 @@ export const HRVMeasurement: React.FC<Props> = ({ onClose, onComplete, brainType
             <div className="w-24 h-24 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mb-6 shadow-lg text-4xl">
               ✨
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">1分セルフチェック</h2>
-            <p className="text-gray-600 mb-8 leading-relaxed text-sm">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">30秒セルフチェック</h2>
+            <p className="text-gray-800 font-medium mb-8 leading-relaxed text-sm">
               「身体・心・情熱」の状態を<br />
               直感でチェックしてみましょう。
             </p>
 
             {prevScore !== null && (
               <div className="mb-8 flex items-center justify-center gap-2 text-gray-400">
-                <span className="text-[10px] font-bold tracking-widest">PREVIOUS:</span>
+                <span className="text-[10px] font-bold tracking-widest">前回スコア：</span>
                 <span className="text-lg font-bold">{prevScore}</span>
               </div>
             )}

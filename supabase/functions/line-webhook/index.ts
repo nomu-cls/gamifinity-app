@@ -42,12 +42,18 @@ interface MessageTemplate {
 }
 
 async function getLineSettings(supabase: any): Promise<LineSettings | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('line_settings')
     .select('*')
     .eq('is_active', true)
     .limit(1)
     .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching line_settings:', error);
+  }
+  console.log('line_settings data:', data ? 'found' : 'not found');
+
   return data;
 }
 
@@ -76,6 +82,176 @@ function replacePlaceholders(template: string, values: Record<string, string>): 
     result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
   }
   return result;
+}
+
+/**
+ * Creates a Flex Message boarding pass for new LINE followers
+ */
+function createBoardingPassFlexMessage(
+  displayName: string,
+  liffUrl: string,
+  expirationHours: number = 48
+): any {
+  // Calculate expiration date
+  const expirationDate = new Date();
+  expirationDate.setHours(expirationDate.getHours() + expirationHours);
+  const formattedExpiration = `${expirationDate.getFullYear()}/${String(expirationDate.getMonth() + 1).padStart(2, '0')}/${String(expirationDate.getDate()).padStart(2, '0')} ${String(expirationDate.getHours()).padStart(2, '0')}:${String(expirationDate.getMinutes()).padStart(2, '0')}`;
+
+  return {
+    type: 'flex',
+    altText: '🚀 搭乗券が発行されました',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'text',
+                text: '🚀',
+                size: 'xl',
+                flex: 0
+              },
+              {
+                type: 'text',
+                text: 'BOARDING PASS',
+                weight: 'bold',
+                size: 'lg',
+                color: '#FFFFFF',
+                flex: 1,
+                margin: 'md'
+              }
+            ],
+            alignItems: 'center'
+          },
+          {
+            type: 'text',
+            text: 'ISSUED',
+            size: 'xs',
+            color: '#A0D2DB',
+            margin: 'sm'
+          }
+        ],
+        backgroundColor: '#1A365D',
+        paddingAll: 'lg'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: 'COMMANDER NAME',
+                size: 'xxs',
+                color: '#6B7280',
+                weight: 'bold'
+              },
+              {
+                type: 'text',
+                text: displayName,
+                size: 'xl',
+                weight: 'bold',
+                color: '#1A365D',
+                margin: 'xs'
+              }
+            ],
+            margin: 'md'
+          },
+          {
+            type: 'separator',
+            margin: 'lg',
+            color: '#E5E7EB'
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'EXPIRATION',
+                    size: 'xxs',
+                    color: '#6B7280',
+                    weight: 'bold'
+                  },
+                  {
+                    type: 'text',
+                    text: formattedExpiration,
+                    size: 'sm',
+                    weight: 'bold',
+                    color: '#1A365D',
+                    margin: 'xs'
+                  }
+                ],
+                flex: 1
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'STATUS',
+                    size: 'xxs',
+                    color: '#6B7280',
+                    weight: 'bold'
+                  },
+                  {
+                    type: 'text',
+                    text: 'INITIALIZING',
+                    size: 'sm',
+                    weight: 'bold',
+                    color: '#059669',
+                    margin: 'xs'
+                  }
+                ],
+                flex: 1
+              }
+            ],
+            margin: 'lg'
+          }
+        ],
+        paddingAll: 'lg',
+        backgroundColor: '#FFFFFF'
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: 'ダッシュボードを開く',
+              uri: liffUrl
+            },
+            style: 'primary',
+            color: '#3B82F6',
+            height: 'md'
+          }
+        ],
+        paddingAll: 'md',
+        backgroundColor: '#F3F4F6'
+      },
+      styles: {
+        header: {
+          separator: false
+        }
+      }
+    }
+  };
 }
 
 async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
@@ -252,22 +428,13 @@ Deno.serve(async (req: Request) => {
           text: welcomeMessage,
         }];
 
-        const diagnosisNotCompleted = isNewUser || !existingUser?.diagnosis_completed;
-        if (diagnosisNotCompleted && lineSettings.liff_url) {
-          messages.push({
-            type: 'template',
-            altText: '脳タイプ診断のご案内',
-            template: {
-              type: 'buttons',
-              title: '脳タイプ診断',
-              text: 'まずは脳タイプ診断を受けて、あなたに最適なアドバイスを受け取りましょう！約2分で完了します。',
-              actions: [{
-                type: 'uri',
-                label: '診断を始める',
-                uri: lineSettings.liff_url,
-              }],
-            },
-          });
+        // Add Flex Message boarding pass with LIFF URL
+        if (lineSettings.liff_url) {
+          messages.push(createBoardingPassFlexMessage(
+            profile?.displayName || 'Commander',
+            lineSettings.liff_url,
+            48 // Expiration in 48 hours
+          ));
         }
 
         await replyMessage(event.replyToken, messages, lineSettings.channel_access_token);
@@ -388,21 +555,6 @@ Deno.serve(async (req: Request) => {
           } else {
             replyText = '閾値の設定例: 「閾値７」';
           }
-        } else if (isValidEmail(messageText.trim())) {
-          const email = messageText.trim();
-          await supabase
-            .from('line_users')
-            .update({ email })
-            .eq('line_user_id', userId);
-
-          await supabase
-            .from('user_stories')
-            .update({ line_user_id: userId })
-            .eq('email', email);
-
-          const emailTemplate = await getMessageTemplate(supabase, 'email_registered');
-          replyText = replacePlaceholders(emailTemplate, { email }) ||
-            `メールアドレス「${email}」を登録しました！`;
         } else if (lowerText.includes('リマインダー') || lowerText.includes('reminder')) {
           if (lowerText.includes('オン') || lowerText.includes('on') || lowerText.includes('有効')) {
             await supabase
@@ -440,16 +592,19 @@ Deno.serve(async (req: Request) => {
               replyText += `\n\n▼診断を始める\n${lineSettings.liff_url}`;
             }
           }
-        } else if (lowerText.includes('メール') || lowerText.includes('登録') || lowerText === 'help' || lowerText === 'ヘルプ') {
-          const currentEmail = currentUser?.data?.email || '未登録';
-          replyText = `メールアドレス登録\n現在: ${currentEmail}\n\nメールアドレスを送信すると、課題の提出状況に応じてリマインダーを送信します。\n\n例: example@mail.com`;
+        } else if (lowerText === 'help' || lowerText === 'ヘルプ') {
+          // Simple help message without email registration
+          const template = await getMessageTemplate(supabase, 'help');
+          replyText = template || 'こんにちは！\n\n「診断」→ 脳タイプを確認\n「リマインダーオン/オフ」→ 通知設定';
+          if (lineSettings.liff_url) {
+            replyText += `\n\n▼アプリを開く\n${lineSettings.liff_url}`;
+          }
         } else {
-          if (!currentUser?.data?.email) {
-            const template = await getMessageTemplate(supabase, 'email_request');
-            replyText = template || 'メールアドレスを登録してください。';
-          } else {
-            const template = await getMessageTemplate(supabase, 'help');
-            replyText = template || 'ヘルプメッセージ';
+          // Default: show help message instead of asking for email
+          const template = await getMessageTemplate(supabase, 'help');
+          replyText = template || 'ご質問ありがとうございます！\n\n「ヘルプ」と送信するとコマンド一覧を確認できます。';
+          if (lineSettings.liff_url) {
+            replyText += `\n\n▼アプリを開く\n${lineSettings.liff_url}`;
           }
         }
 

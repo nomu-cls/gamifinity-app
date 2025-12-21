@@ -27,30 +27,34 @@ interface BrainTypeDiagnosisProps {
   onClose?: () => void;
 }
 
-const BRAIN_TYPE_INFO: Record<string, { name: string; description: string; color: string; traits: string[] }> = {
+const BRAIN_TYPE_INFO: Record<string, { name: string; description: string; color: string; traits: string[]; image: string }> = {
   left_3d: {
     name: 'シン（戦略家）',
     description: '最短ルートを弾き出し、論理で戦略を練る参謀です',
     color: '#3B82F6',
-    traits: ['クールで論理的', '本質を見抜く', 'コスパ重視', '進化と質の向上']
+    traits: ['クールで論理的', '本質を見抜く', 'コスパ重視', '進化と質の向上'],
+    image: '/characters/sora.png'
   },
   left_2d: {
     name: 'マモル（守護者）',
     description: 'リスクを管理し、安全と信念を守る保安官であり職人です',
     color: '#10B981',
-    traits: ['維持・継続力', '職人魂', '正確性', '信念を貫く']
+    traits: ['維持・継続力', '職人魂', '正確性', '信念を貫く'],
+    image: '/characters/mamoru.png'
   },
   right_3d: {
     name: 'ソラ（冒険家）',
     description: '未来を見るビジョナリー。常にワクワクを指し示します',
     color: '#FBBF24',
-    traits: ['好奇心旺盛', '拡張志向', '直感力', '楽観的']
+    traits: ['好奇心旺盛', '拡張志向', '直感力', '楽観的'],
+    image: '/characters/piku.png'
   },
   right_2d: {
     name: 'ピク（癒やし手）',
     description: '空気を読み、みんなとのつながりを大切にするムードメーカーです',
     color: '#EC4899',
-    traits: ['感受性豊か', '共感力', '調和重視', '思いやり']
+    traits: ['感受性豊か', '共感力', '調和重視', '思いやり'],
+    image: '/characters/shin.png'
   }
 };
 
@@ -209,9 +213,8 @@ export default function BrainTypeDiagnosis({ lineUserId, onComplete, onClose }: 
 
         {phase === 'intro' && (
           <div className="p-8 text-center space-y-6">
-            <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center"
-                 style={{ background: `linear-gradient(135deg, ${colors.gold}40, ${colors.rose}40)` }}>
-              <Brain size={48} style={{ color: colors.gold }} />
+            <div className="w-full rounded-2xl overflow-hidden mb-4 shadow-lg">
+              <img src="/characters/crew_all.jpg" alt="4人のクルー" className="w-full h-auto object-cover" />
             </div>
 
             <div>
@@ -290,7 +293,7 @@ export default function BrainTypeDiagnosis({ lineUserId, onComplete, onClose }: 
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                         style={{ background: `${colors.peach}`, color: colors.deepBrown }}>
+                      style={{ background: `${colors.peach}`, color: colors.deepBrown }}>
                       {String.fromCharCode(65 + index)}
                     </div>
                     <span className="text-sm" style={{ color: colors.deepBrown }}>
@@ -307,9 +310,9 @@ export default function BrainTypeDiagnosis({ lineUserId, onComplete, onClose }: 
           <div className="p-12 text-center space-y-6">
             <div className="relative w-24 h-24 mx-auto">
               <div className="absolute inset-0 rounded-full animate-ping opacity-30"
-                   style={{ background: colors.gold }} />
+                style={{ background: colors.gold }} />
               <div className="absolute inset-2 rounded-full animate-pulse"
-                   style={{ background: `linear-gradient(135deg, ${colors.gold}, ${colors.rose})` }} />
+                style={{ background: `linear-gradient(135deg, ${colors.gold}, ${colors.rose})` }} />
               <div className="absolute inset-0 flex items-center justify-center">
                 <Brain size={40} className="text-white" />
               </div>
@@ -329,17 +332,21 @@ export default function BrainTypeDiagnosis({ lineUserId, onComplete, onClose }: 
           <div className="p-6 space-y-6">
             <div className="text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4"
-                   style={{ background: `${colors.gold}20` }}>
+                style={{ background: `${colors.gold}20` }}>
                 <Sparkles size={16} style={{ color: colors.gold }} />
                 <span className="text-sm font-bold" style={{ color: colors.gold }}>診断結果</span>
               </div>
             </div>
 
             <div className="p-6 rounded-2xl text-center"
-                 style={{ background: `linear-gradient(135deg, ${BRAIN_TYPE_INFO[result].color}15, ${BRAIN_TYPE_INFO[result].color}05)` }}>
-              <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
-                   style={{ background: `${BRAIN_TYPE_INFO[result].color}20` }}>
-                <Brain size={40} style={{ color: BRAIN_TYPE_INFO[result].color }} />
+              style={{ background: `linear-gradient(135deg, ${BRAIN_TYPE_INFO[result].color}15, ${BRAIN_TYPE_INFO[result].color}05)` }}>
+              <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 overflow-hidden border-4"
+                style={{ borderColor: BRAIN_TYPE_INFO[result].color, background: `${BRAIN_TYPE_INFO[result].color}20` }}>
+                <img
+                  src={BRAIN_TYPE_INFO[result].image}
+                  alt={BRAIN_TYPE_INFO[result].name}
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <h3 className="text-xl font-bold mb-2" style={{ color: colors.deepBrown }}>
@@ -366,7 +373,7 @@ export default function BrainTypeDiagnosis({ lineUserId, onComplete, onClose }: 
             <div className="p-4 rounded-xl" style={{ background: `${colors.peach}50` }}>
               <p className="text-xs text-center" style={{ color: colors.deepBrown }}>
                 あなたのコマンダータイプに合わせて、最適なアドバイスやコーチングをお届けします。
-                自律神経チェックなどの機能で、より詳しいパーソナライズされた体験をお楽しみください。
+                30秒ステート・チェックインなどの機能で、より詳しいパーソナライズされた体験をお楽しみください。
               </p>
             </div>
 

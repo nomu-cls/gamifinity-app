@@ -53,6 +53,11 @@ export interface UserStory {
   event_schedule?: string;
   event_url?: string;
   event_password?: string;
+  // Daily Navigation System
+  user_phase?: 'passenger' | 'training' | 'commander';
+  intro_progress?: number; // 0, 1, 2
+  daily_logs?: Record<string, any>; // JSONB
+  brain_type?: 'left_3d' | 'left_2d' | 'right_3d' | 'right_2d';
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +111,8 @@ export interface SiteSettings {
   banner_button_text?: string;
   banner_image_url?: string;
   banner_link_url?: string;
+  morning_audio_url?: string;
+  night_audio_url?: string;
   footer_line1?: string;
   footer_line2?: string;
   created_at: string;

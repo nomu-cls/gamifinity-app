@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ExternalLink, Flame, Filter, ChevronDown, ChevronUp, Users, TrendingUp, AlertCircle, MessageCircle } from 'lucide-react';
+import { Search, ExternalLink, Flame, Filter, ChevronDown, ChevronUp, Users, TrendingUp, AlertCircle, MessageCircle, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface UserData {
@@ -14,6 +14,8 @@ interface UserData {
   hot_lead_score: number | null;
   hot_lead_reason: string | null;
   last_activity: string | null;
+  is_session_booked?: boolean;
+  booked_at?: string | null;
 }
 
 interface FilterState {
@@ -22,6 +24,7 @@ interface FilterState {
   maxDay: number | null;
   minScore: number | null;
   hotLeadOnly: boolean;
+  bookedOnly: boolean;
   searchQuery: string;
 }
 
@@ -60,9 +63,10 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
     maxDay: null,
     minScore: null,
     hotLeadOnly: false,
+    bookedOnly: false,
     searchQuery: ''
   });
-  const [sortBy, setSortBy] = useState<'score' | 'day' | 'name' | 'recent'>('score');
+  const [sortBy, setSortBy] = useState<'score' | 'day' | 'name' | 'recent' | 'booked'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
@@ -95,7 +99,7 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
 
     const { data: stories, error: storiesError } = await supabase
       .from('user_stories')
-      .select('line_user_id, day1_field1, day2_field1, day3_field1, progress, updated_at');
+      .select('line_user_id, day1_field1, day2_field1, day3_field1, progress, updated_at, is_session_booked, booked_at');
 
     if (storiesError) {
       console.error('Error loading stories:', storiesError);
@@ -144,7 +148,9 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
         current_day: currentDay,
         hot_lead_score: hotLead?.score || null,
         hot_lead_reason: hotLead?.reason || null,
-        last_activity: story?.updated_at || user.created_at
+        last_activity: story?.updated_at || user.created_at,
+        is_session_booked: story?.is_session_booked,
+        booked_at: story?.booked_at
       };
     });
 
@@ -183,6 +189,10 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
       result = result.filter(u => (u.hot_lead_score || 0) >= 7);
     }
 
+    if (filters.bookedOnly) {
+      result = result.filter(u => u.is_session_booked);
+    }
+
     result.sort((a, b) => {
       let comparison = 0;
 
@@ -199,6 +209,15 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
         case 'recent':
           comparison = new Date(b.last_activity || 0).getTime() - new Date(a.last_activity || 0).getTime();
           break;
+        case 'booked':
+          if (a.booked_at && b.booked_at) {
+            comparison = new Date(a.booked_at).getTime() - new Date(b.booked_at).getTime();
+          } else if (a.booked_at) {
+            comparison = -1; // booked comes first
+          } else if (b.booked_at) {
+            comparison = 1;
+          }
+          break;
       }
 
       return sortOrder === 'asc' ? -comparison : comparison;
@@ -207,6 +226,15 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
     const hotUsers = result.filter(u => (u.hot_lead_score || 0) >= 7);
     const otherUsers = result.filter(u => (u.hot_lead_score || 0) < 7);
 
+    // If sorting by booked, we might want to respect that over hot lead separation, 
+    // or keep hot lead separation. Let's keep hot lead separation but maybe 
+    // it's confusing if sorting by date.
+    // For now, let's just return result if using specific sorts? 
+    // Actually, normally user wants to see hot leads top.
+    // But if 'booked' sort is selected, they probably want to see booked status priority.
+
+    if (sortBy === 'booked') return result;
+
     return [...hotUsers, ...otherUsers];
   }, [users, filters, sortBy, sortOrder]);
 
@@ -214,12 +242,9 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
     const total = users.length;
     const hotLeads = users.filter(u => (u.hot_lead_score || 0) >= 7).length;
     const diagnosisCompleted = users.filter(u => u.diagnosis_completed).length;
-    const byBrainType = Object.keys(BRAIN_TYPE_INFO).reduce((acc, type) => {
-      acc[type] = users.filter(u => u.brain_type === type).length;
-      return acc;
-    }, {} as Record<string, number>);
+    const booked = users.filter(u => u.is_session_booked).length;
 
-    return { total, hotLeads, diagnosisCompleted, byBrainType };
+    return { total, hotLeads, diagnosisCompleted, booked };
   }, [users]);
 
   const openLineOAManager = (lineUserId: string) => {
@@ -251,12 +276,23 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
   };
 
   const presetFilters = [
+    { label: '予約あり', filter: { bookedOnly: true, brainType: 'all', minDay: null, maxDay: null } },
     { label: 'Day2で停止中', filter: { minDay: 2, maxDay: 2 } },
     { label: 'Day1で停止中', filter: { minDay: 1, maxDay: 1 } },
     { label: '未着手', filter: { minDay: 0, maxDay: 0 } },
     { label: '右脳2次元のみ', filter: { brainType: 'right_2d' } },
-    { label: '左脳3次元のみ', filter: { brainType: 'left_3d' } },
   ];
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return null;
+    try {
+      const d = new Date(dateString);
+      return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -296,11 +332,11 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
 
         <div className="glass-card p-4 rounded-xl">
           <div className="flex items-center gap-2 mb-2">
-            <AlertCircle size={18} style={{ color: colors.gold }} />
-            <span className="text-xs font-medium" style={{ color: colors.deepBrown }}>要フォロー</span>
+            <Calendar size={18} className="text-blue-500" />
+            <span className="text-xs font-medium" style={{ color: colors.deepBrown }}>予約済み</span>
           </div>
-          <p className="text-2xl font-bold" style={{ color: colors.gold }}>
-            {users.filter(u => u.current_day > 0 && u.current_day < 3 && (u.hot_lead_score || 0) >= 5).length}
+          <p className="text-2xl font-bold text-blue-500">
+            {stats.booked}
           </p>
         </div>
       </div>
@@ -339,6 +375,7 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
             <option value="day">進捗Day順</option>
             <option value="name">名前順</option>
             <option value="recent">最終活動順</option>
+            <option value="booked">予約日時順</option>
           </select>
 
           <button
@@ -370,6 +407,7 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
                   maxDay: null,
                   minScore: null,
                   hotLeadOnly: false,
+                  bookedOnly: false,
                   searchQuery: ''
                 })}
                 className="px-3 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 transition-all"
@@ -439,17 +477,32 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="hotLeadOnly"
-                checked={filters.hotLeadOnly}
-                onChange={(e) => setFilters(prev => ({ ...prev, hotLeadOnly: e.target.checked }))}
-                className="rounded"
-              />
-              <label htmlFor="hotLeadOnly" className="text-sm" style={{ color: colors.deepBrown }}>
-                ホットリードのみ表示（スコア7以上）
-              </label>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="hotLeadOnly"
+                  checked={filters.hotLeadOnly}
+                  onChange={(e) => setFilters(prev => ({ ...prev, hotLeadOnly: e.target.checked }))}
+                  className="rounded"
+                />
+                <label htmlFor="hotLeadOnly" className="text-sm" style={{ color: colors.deepBrown }}>
+                  ホットリードのみ表示（スコア7以上）
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="bookedOnly"
+                  checked={filters.bookedOnly}
+                  onChange={(e) => setFilters(prev => ({ ...prev, bookedOnly: e.target.checked }))}
+                  className="rounded"
+                />
+                <label htmlFor="bookedOnly" className="text-sm font-bold text-blue-600">
+                  予約ありのみ表示
+                </label>
+              </div>
             </div>
           </div>
         )}
@@ -514,6 +567,22 @@ export default function NiyaNiyaList({ lineChannelId, onUserChatClick }: NiyaNiy
                     </span>
                   </div>
                 </div>
+
+                {/* Reservation Info - New! */}
+                {user.is_session_booked && (
+                  <div className="flex flex-col items-end mr-4">
+                    <div className="flex items-center gap-1 text-blue-500 font-bold text-xs bg-blue-50 px-2 py-1 rounded-md">
+                      <Calendar size={12} />
+                      <span>予約あり</span>
+                    </div>
+                    {user.booked_at && (
+                      <span className="text-xs font-bold text-gray-600 mt-0.5">
+                        {formatDate(user.booked_at)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
 
                 <div className="flex items-center gap-4">
                   <div className="text-center">
