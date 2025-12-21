@@ -115,6 +115,7 @@ export interface SiteSettings {
   night_audio_url?: string;
   footer_line1?: string;
   footer_line2?: string;
+  admin_users?: string | string[];
   created_at: string;
   updated_at: string;
 }

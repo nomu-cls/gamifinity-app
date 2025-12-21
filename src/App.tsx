@@ -426,7 +426,24 @@ const App = () => {
     return unlocked;
   }, [story?.day1_field1, story?.day2_field1, story?.unlocked_days]);
 
-  if (loading || !story) {
+  const isAdmin = useMemo(() => {
+    if (!userData?.line_user_id) return false;
+
+    // Check siteSettings
+    const adminUsers = siteSettings?.admin_users;
+    if (typeof adminUsers === 'string') {
+      if (adminUsers.split(',').map((s: string) => s.trim()).includes(userData.line_user_id)) return true;
+    } else if (Array.isArray(adminUsers)) {
+      if (adminUsers.includes(userData.line_user_id)) return true;
+    }
+
+    // Check custom story flag if exists
+    if ((story as any)?.is_admin) return true;
+
+    return false;
+  }, [userData?.line_user_id, siteSettings?.admin_users, story]);
+
+  if (liffLoading || (isLoggedIn && (loading || !story))) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: colors.sakura }}>
         <div className="text-center space-y-4">
@@ -4274,7 +4291,7 @@ const App = () => {
               onUpdate={updateStory}
               onStartDiagnosis={() => setShowDiagnosis(true)}
               onStartTask={(day) => setView(`day${day}` as any)}
-              onViewSettings={() => setView('admin')}
+              onViewSettings={isAdmin ? () => setView('admin') : undefined}
               onLogout={logout}
               displayName={userData?.display_name}
               onPromotion={async () => {
