@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../DreamMaker/DreamMaker-main"
+		},
+		{
+			"path": "../CreativeLifeHP"
 		}
 	],
 	"settings": {}

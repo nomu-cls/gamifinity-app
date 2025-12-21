@@ -427,6 +427,10 @@ const App = () => {
   }, [story?.day1_field1, story?.day2_field1, story?.unlocked_days]);
 
   const isAdmin = useMemo(() => {
+    // Allow admin access in demo mode for testing
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('demo') === 'true') return true;
+
     if (!userData?.line_user_id) return false;
 
     // Check siteSettings
@@ -4067,10 +4071,10 @@ const App = () => {
   const activeDaysArray = siteSettings?.active_days || [1, 2, 3];
   const dayData = activeDaysArray.map(day => {
     const setting = daySettings[day];
-    const archiveUrls = [story.day1_archive_url, story.day2_archive_url, story.day3_archive_url];
+    const archiveUrls = [story?.day1_archive_url, story?.day2_archive_url, story?.day3_archive_url];
     const archiveDeadlines = [siteSettings?.day1_archive_deadline, siteSettings?.day2_archive_deadline, siteSettings?.day3_archive_deadline];
     const assignmentDeadlines = [siteSettings?.day1_assignment_deadline, siteSettings?.day2_assignment_deadline, siteSettings?.day3_assignment_deadline];
-    const completedFields = [story.day1_field1, story.day2_field1, story.day3_field1];
+    const completedFields = [story?.day1_field1, story?.day2_field1, story?.day3_field1];
 
     return {
       day,
@@ -5525,17 +5529,19 @@ const App = () => {
               <span className="relative z-10">{!isInitialized ? '初期化中...' : '搭乗手続きを開始'}</span>
             </button>
 
-            {/* Demo Mode */}
-            <button
-              onClick={() => {
-                const url = new URL(window.location.href);
-                url.searchParams.set('demo', 'true');
-                window.location.href = url.toString();
-              }}
-              className="w-full py-3 rounded-xl font-medium text-sm transition-all hover:bg-white/5 border border-white/20 text-white/60 hover:text-white/80"
-            >
-              デモフライトで体験
-            </button>
+            {/* Demo Mode - Admin Only */}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('demo', 'true');
+                  window.location.href = url.toString();
+                }}
+                className="w-full py-3 rounded-xl font-medium text-sm transition-all hover:bg-white/5 border border-white/20 text-white/60 hover:text-white/80"
+              >
+                デモフライトで体験
+              </button>
+            )}
 
             {liffError && (
               <p className="text-sm text-red-400">

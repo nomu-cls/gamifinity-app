@@ -685,19 +685,17 @@ const PassengerDashboard: React.FC<Props> = ({
                                         </div>
                                     )}
 
-                                    {/* Video Content - Show when not completed OR when video tab selected */}
+                                    {/* Video Content - Coming Soon */}
                                     {(!hasDay1Submitted || missionContentView === 'video') && (
-                                        <YouTubePlayer
-                                            videoUrl={daySettings[1]?.youtube_url || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
-                                            brainType={story.brain_type}
-                                            onWatchComplete={() => {
-                                                console.log('Mission 01 video 90% watched!');
-                                                if (!hasDay1Submitted) {
-                                                    setShowMissionForm(true);
-                                                }
-                                            }}
-                                            completionThreshold={0.9}
-                                        />
+                                        <div className="aspect-video rounded-xl bg-gradient-to-br from-gray-900/80 to-navy-950/80 border border-white/10 flex flex-col items-center justify-center gap-4">
+                                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                                                <Lock className="w-8 h-8 text-amber-400" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-amber-400 font-bold tracking-widest text-sm uppercase mb-1">Coming Soon</p>
+                                                <p className="text-white/40 text-xs">動画準備中</p>
+                                            </div>
+                                        </div>
                                     )}
 
                                     {/* Mission Form - Shows after threshold (only when not yet submitted) */}
@@ -827,18 +825,17 @@ const PassengerDashboard: React.FC<Props> = ({
                                         </div>
                                     )}
 
-                                    {/* Video Content */}
+                                    {/* Video Content - Coming Soon */}
                                     {(!hasDay2Submitted || missionContentView === 'video') && (
-                                        <YouTubePlayer
-                                            videoUrl={daySettings[2]?.youtube_url || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
-                                            brainType={story.brain_type}
-                                            onWatchComplete={() => {
-                                                if (!hasDay2Submitted) {
-                                                    setShowMissionForm(true);
-                                                }
-                                            }}
-                                            completionThreshold={0.9}
-                                        />
+                                        <div className="aspect-video rounded-xl bg-gradient-to-br from-gray-900/80 to-navy-950/80 border border-white/10 flex flex-col items-center justify-center gap-4">
+                                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                                                <Lock className="w-8 h-8 text-amber-400" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-amber-400 font-bold tracking-widest text-sm uppercase mb-1">Coming Soon</p>
+                                                <p className="text-white/40 text-xs">動画準備中</p>
+                                            </div>
+                                        </div>
                                     )}
 
                                     {/* Mission Form */}
