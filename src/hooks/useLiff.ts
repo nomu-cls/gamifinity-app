@@ -228,14 +228,22 @@ export function useLiff(liffId?: string): UseLiffReturn {
       window.location.href = url.toString();
       return;
     }
-    if (isInitialized && isLoggedIn) {
-      liff.logout();
-      setIsLoggedIn(false);
-      setProfile(null);
-      setUserData(null);
-      window.location.reload();
+    if (isInitialized) { // Removed isLoggedIn check to force clear if needed
+      try {
+        // LINE In-App Browser doesn't support logout, but we call it for external browsers
+        if (liff.isLoggedIn()) {
+          liff.logout();
+        }
+      } catch (e) {
+        console.error('Logout error:', e);
+      } finally {
+        setIsLoggedIn(false);
+        setProfile(null);
+        setUserData(null);
+        window.location.reload();
+      }
     }
-  }, [isInitialized, isLoggedIn, isDemoMode]);
+  }, [isInitialized, isDemoMode]);
 
   return {
     isInitialized,

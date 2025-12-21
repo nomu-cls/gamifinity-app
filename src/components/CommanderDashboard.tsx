@@ -999,7 +999,7 @@ const CommanderDashboard: React.FC<Props> = ({ story, siteSettings, onUpdate, on
                                                 🧭 すべてが完璧にならなくても動き出せるための、<br />
                                                 <span className="text-amber-300">特別な作戦会議</span>
                                             </p>
-                                            <p className="text-xs text-gray-400 leading-relaxed">
+                                            <p className="text-xs text-white/90 leading-relaxed font-medium">
                                                 「Broken's Beautiful」の精神で、今のあなたのままで最高に輝くためのルートを一緒に描きます。
                                             </p>
                                         </div>
