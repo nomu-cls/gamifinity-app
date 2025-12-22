@@ -5862,8 +5862,8 @@ const App = () => {
 
             setShowDiagnosis(false);
 
-            // Show Gate Opening after diagnosis
-            setShowGateOpening(true);
+            // Gate Opening disabled for now - use debug button to test
+            // setShowGateOpening(true);
 
             if (userData) {
               await refreshUserData();
