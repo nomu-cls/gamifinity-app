@@ -136,7 +136,7 @@ const GateOpening: React.FC<GateOpeningProps> = ({
                             transition={{ delay: 0.5 }}
                             className="text-white/70 mb-12 leading-relaxed"
                         >
-                            あなたの脳タイプが判明しました。
+                            コマンダーへの昇格、おめでとうございます！
                             <br />
                             これから21日間、本当の自分を取り戻す旅が始まります。
                         </motion.p>
