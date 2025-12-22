@@ -16,6 +16,7 @@ import PassengerDashboard from './components/PassengerDashboard';
 import CommanderDashboard from './components/CommanderDashboard';
 import BoardingPass from './components/BoardingPass';
 import MissionIgnition from './components/MissionIgnition';
+import GateOpening from './components/GateOpening';
 const StyleTag = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Charm:wght@400;700&display=swap');
@@ -369,6 +370,8 @@ const App = () => {
   const [revivalDay, setRevivalDay] = useState<number | null>(null);
   const [showHRVMeasurement, setShowHRVMeasurement] = useState(false);
   const [showDiagnosis, setShowDiagnosis] = useState(false);
+  const [showGateOpening, setShowGateOpening] = useState(false);
+  const [pendingBrainType, setPendingBrainType] = useState<string | null>(null);
   const [localBrainType, setLocalBrainType] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('brainType');
@@ -5831,14 +5834,19 @@ const App = () => {
           onComplete={async (brainType) => {
             console.log('Diagnosis completed:', brainType);
             localStorage.setItem('brainType', brainType);
-            localStorage.setItem('lastSeenBrainType', brainType); // Prevent boarding pass from showing again
+            localStorage.setItem('lastSeenBrainType', brainType);
             setLocalBrainType(brainType);
+            setPendingBrainType(brainType);
 
             // Sync with Story Data (Supabase)
             await updateStory({ brain_type: brainType });
             await reloadStoryData();
 
             setShowDiagnosis(false);
+
+            // Show Gate Opening after diagnosis
+            setShowGateOpening(true);
+
             if (userData) {
               await refreshUserData();
             }
@@ -5855,6 +5863,27 @@ const App = () => {
       {/* Digital Boarding Pass (Worldview Integration) */}
       {showBoardingPass && (
         <BoardingPass story={story} onClose={handleCloseBoardingPass} />
+      )}
+
+      {/* Gate Opening - 21 Day Program Entry */}
+      {showGateOpening && (
+        <GateOpening
+          userName={story?.name || userData?.display_name || 'ゲスト'}
+          brainType={pendingBrainType || story?.brain_type || 'right_3d'}
+          onEnroll={async () => {
+            // Enroll in 21-day program
+            await updateStory({
+              program_enrolled_at: new Date().toISOString(),
+              program_day: 1,
+              program_status: 'active'
+            });
+            await reloadStoryData();
+          }}
+          onSkip={() => {
+            setShowGateOpening(false);
+            setPendingBrainType(null);
+          }}
+        />
       )}
 
       {/* Video Modal (In-App Player) */}

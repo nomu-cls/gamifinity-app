@@ -58,6 +58,17 @@ export interface UserStory {
   intro_progress?: number; // 0, 1, 2
   daily_logs?: Record<string, any>; // JSONB
   brain_type?: 'left_3d' | 'left_2d' | 'right_3d' | 'right_2d';
+  // 21 Day Program
+  program_enrolled_at?: string;
+  program_day?: number;
+  program_status?: 'not_started' | 'active' | 'completed' | 'paused';
+  total_miles?: number;
+  // DreamMaker Ego Stats (compatible)
+  ego_observation?: number;
+  ego_control?: number;
+  ego_efficacy?: number;
+  ego_affirmation?: number;
+  stress_tolerance?: number;
   created_at: string;
   updated_at: string;
 }
