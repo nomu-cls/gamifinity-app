@@ -200,12 +200,12 @@ Status: OS Updating...
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
             {/* デジタルレイン背景 - Matrix style columns */}
             <div className="absolute inset-0 overflow-hidden">
-                {[...Array(40)].map((_, i) => (
+                {[...Array(100)].map((_, i) => (
                     <MatrixColumn
                         key={i}
-                        x={(i / 50) * 100 + Math.random() * 2}
-                        speed={3 + Math.random() * 4}
-                        initialDelay={Math.random() * 3}
+                        x={(i / 100) * 100}
+                        speed={2 + Math.random() * 3}
+                        initialDelay={Math.random() * 5}
                     />
                 ))}
             </div>
