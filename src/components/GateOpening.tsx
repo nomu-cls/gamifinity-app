@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RadarChart from './RadarChart';
+import MatrixRain from './MatrixRain';
 
 interface GateOpeningProps {
     userName: string;
@@ -198,17 +199,8 @@ Status: OS Updating...
 
     return (
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
-            {/* デジタルレイン背景 - Matrix style columns */}
-            <div className="absolute inset-0 overflow-hidden">
-                {[...Array(100)].map((_, i) => (
-                    <MatrixColumn
-                        key={i}
-                        x={(i / 100) * 100}
-                        speed={2 + Math.random() * 3}
-                        initialDelay={Math.random() * 5}
-                    />
-                ))}
-            </div>
+            {/* デジタルレイン背景 - Canvas based for smooth animation */}
+            <MatrixRain opacity={0.8} />
 
             {/* Scanlines overlay */}
             <div
