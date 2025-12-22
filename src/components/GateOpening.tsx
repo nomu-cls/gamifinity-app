@@ -178,7 +178,7 @@ Status: OS Updating...
                     delay: initialDelay,
                     ease: 'linear'
                 }}
-                style={{ left: x }}
+                style={{ left: `${x}%` }}
             >
                 {chars.map((char, i) => (
                     <span
@@ -203,7 +203,7 @@ Status: OS Updating...
                 {[...Array(40)].map((_, i) => (
                     <MatrixColumn
                         key={i}
-                        x={i * 10 + Math.random() * 5}
+                        x={(i / 50) * 100 + Math.random() * 2}
                         speed={3 + Math.random() * 4}
                         initialDelay={Math.random() * 3}
                     />
