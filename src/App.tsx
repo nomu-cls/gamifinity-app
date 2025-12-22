@@ -17,6 +17,7 @@ import CommanderDashboard from './components/CommanderDashboard';
 import BoardingPass from './components/BoardingPass';
 import MissionIgnition from './components/MissionIgnition';
 import GateOpening from './components/GateOpening';
+import PointCard from './components/PointCard';
 const StyleTag = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Charm:wght@400;700&display=swap');
@@ -372,6 +373,7 @@ const App = () => {
   const [showDiagnosis, setShowDiagnosis] = useState(false);
   const [showGateOpening, setShowGateOpening] = useState(false);
   const [pendingBrainType, setPendingBrainType] = useState<string | null>(null);
+  const [showPointCard, setShowPointCard] = useState(false);
   const [localBrainType, setLocalBrainType] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('brainType');
@@ -1482,6 +1484,22 @@ const App = () => {
                   className="flex-1 py-2 text-xs bg-orange-200 text-orange-800 rounded font-bold"
                 >
                   Reset Reservation
+                </button>
+              </div>
+
+              {/* 21 Day Program Debug */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowPointCard(true)}
+                  className="flex-1 py-2 text-xs bg-purple-200 text-purple-800 rounded font-bold"
+                >
+                  📊 Point Card
+                </button>
+                <button
+                  onClick={() => setShowGateOpening(true)}
+                  className="flex-1 py-2 text-xs bg-pink-200 text-pink-800 rounded font-bold"
+                >
+                  🚀 Gate Opening
                 </button>
               </div>
 
@@ -5884,6 +5902,27 @@ const App = () => {
             setPendingBrainType(null);
           }}
         />
+      )}
+
+      {/* Point Card Modal */}
+      {showPointCard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <PointCard
+            userName={story?.name || userData?.display_name || 'ゲスト'}
+            brainType={story?.brain_type || 'right_3d'}
+            stats={{
+              ego_observation: story?.ego_observation || 0,
+              ego_control: story?.ego_control || 0,
+              ego_efficacy: story?.ego_efficacy || 0,
+              ego_affirmation: story?.ego_affirmation || 0,
+              stress_tolerance: story?.stress_tolerance || 0
+            }}
+            totalMiles={story?.total_miles || 0}
+            programDay={story?.program_day || 1}
+            rank="passenger"
+            onClose={() => setShowPointCard(false)}
+          />
+        </div>
       )}
 
       {/* Video Modal (In-App Player) */}
