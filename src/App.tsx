@@ -1453,8 +1453,7 @@ const App = () => {
                 <button
                   onClick={async () => {
                     await updateStory({ user_phase: 'commander' });
-                    alert('Switched to Commander Phase');
-                    window.location.reload();
+                    setShowGateOpening(true);
                   }}
                   className="flex-1 py-2 text-xs bg-indigo-200 text-indigo-800 rounded font-bold"
                 >
@@ -4324,6 +4323,8 @@ const App = () => {
                 if (!unlockedDays.includes(1)) {
                   await updateStory({ unlocked_days: [1], is_locked: false });
                 }
+                // Show Gate Opening for 21-day program enrollment
+                setShowGateOpening(true);
               }}
             />
           </div>
