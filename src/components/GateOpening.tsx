@@ -225,15 +225,15 @@ Status: OS Updating...
                             animate={{ y: 0, opacity: 1 }}
                             className="mb-8"
                         >
-                            <div className="inline-block px-4 py-2 bg-red-900/50 border border-red-500/50 rounded mb-4">
-                                <span className="text-red-400 font-mono text-xs tracking-wider animate-pulse">
+                            <div className="inline-block px-4 py-2 bg-green-900/50 border border-green-500/50 rounded mb-4">
+                                <span className="text-green-400 font-mono text-xs tracking-wider animate-pulse">
                                     ⚠️ SYSTEM ERROR
                                 </span>
                             </div>
-                            <h1 className="text-2xl md:text-3xl font-mono font-bold text-green-400 mb-2">
+                            <h1 className="text-2xl md:text-3xl font-mono font-bold text-green-400 mb-2" style={{ textShadow: '0 0 10px #22c55e, 0 0 20px #22c55e' }}>
                                 才能渋滞を検知しました
                             </h1>
-                            <p className="text-green-300/70 font-mono text-sm">
+                            <p className="text-green-400 font-mono text-sm" style={{ textShadow: '0 0 5px #22c55e' }}>
                                 真実のOSを起動しますか？
                             </p>
                         </motion.div>
@@ -242,7 +242,8 @@ Status: OS Updating...
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5 }}
-                            className="text-green-400/60 mb-12 leading-relaxed font-mono text-sm"
+                            className="text-green-400 mb-12 leading-relaxed font-mono text-sm"
+                            style={{ textShadow: '0 0 5px #22c55e' }}
                         >
                             {userName}さん、コマンダーへの昇格おめでとうございます。
                             <br />
@@ -267,8 +268,8 @@ Status: OS Updating...
                                 <div className="w-16 h-24 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)]">
                                     <div className="w-full h-1/2 bg-gradient-to-b from-red-400 to-red-500 rounded-t-full" />
                                 </div>
-                                <span className="text-red-400 font-mono font-bold">[ 点火 ]</span>
-                                <span className="text-green-400/50 text-xs font-mono text-center leading-relaxed">
+                                <span className="text-green-400 font-mono font-bold" style={{ textShadow: '0 0 5px #22c55e' }}>[ 点火 ]</span>
+                                <span className="text-green-400 text-xs font-mono text-center leading-relaxed" style={{ textShadow: '0 0 3px #22c55e' }}>
                                     『感覚の光』を<br />取り戻す旅へ
                                 </span>
                             </motion.button>
@@ -289,8 +290,8 @@ Status: OS Updating...
                                 <div className="w-16 h-24 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.4)]">
                                     <div className="w-full h-1/2 bg-gradient-to-b from-blue-400 to-blue-500 rounded-t-full" />
                                 </div>
-                                <span className="text-blue-400 font-mono font-bold">[ 保留 ]</span>
-                                <span className="text-green-400/50 text-xs font-mono text-center leading-relaxed">
+                                <span className="text-green-400 font-mono font-bold" style={{ textShadow: '0 0 5px #22c55e' }}>[ 保留 ]</span>
+                                <span className="text-green-400 text-xs font-mono text-center leading-relaxed" style={{ textShadow: '0 0 3px #22c55e' }}>
                                     思考の重力<br />(Gravity)に留まる
                                 </span>
                             </motion.button>
