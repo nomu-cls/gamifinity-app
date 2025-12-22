@@ -161,30 +161,52 @@ Status: OS Updating...
 
     const typeGradient = brainTypeColors[brainType] || 'from-purple-500 to-blue-400';
 
-    // Digital Rain Character
-    const MatrixChar = ({ delay, x }: { delay: number; x: number }) => (
-        <motion.div
-            className="absolute text-green-500/40 text-sm font-mono"
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: '100vh', opacity: [0, 1, 1, 0] }}
-            transition={{
-                duration: 4 + Math.random() * 3,
-                repeat: Infinity,
-                delay: delay,
-                ease: 'linear'
-            }}
-            style={{ left: x }}
-        >
-            {String.fromCharCode(0x30A0 + Math.random() * 96)}
-        </motion.div>
-    );
+    // Matrix Rain Column - more authentic dense effect
+    const MatrixColumn = ({ x, speed, initialDelay }: { x: number; speed: number; initialDelay: number }) => {
+        const chars = Array.from({ length: 25 }, () =>
+            String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96))
+        );
+
+        return (
+            <motion.div
+                className="absolute flex flex-col font-mono text-xs leading-none"
+                initial={{ y: '-100%' }}
+                animate={{ y: '100vh' }}
+                transition={{
+                    duration: speed,
+                    repeat: Infinity,
+                    delay: initialDelay,
+                    ease: 'linear'
+                }}
+                style={{ left: x }}
+            >
+                {chars.map((char, i) => (
+                    <span
+                        key={i}
+                        className="h-4"
+                        style={{
+                            color: i === 0 ? '#ffffff' : `rgba(34, 197, 94, ${1 - (i * 0.04)})`,
+                            textShadow: i === 0 ? '0 0 10px #fff, 0 0 20px #22c55e' : i < 5 ? '0 0 5px #22c55e' : 'none'
+                        }}
+                    >
+                        {char}
+                    </span>
+                ))}
+            </motion.div>
+        );
+    };
 
     return (
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
-            {/* デジタルレイン背景 */}
+            {/* デジタルレイン背景 - Matrix style columns */}
             <div className="absolute inset-0 overflow-hidden">
-                {[...Array(80)].map((_, i) => (
-                    <MatrixChar key={i} delay={Math.random() * 5} x={Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 400)} />
+                {[...Array(40)].map((_, i) => (
+                    <MatrixColumn
+                        key={i}
+                        x={i * 10 + Math.random() * 5}
+                        speed={3 + Math.random() * 4}
+                        initialDelay={Math.random() * 3}
+                    />
                 ))}
             </div>
 
