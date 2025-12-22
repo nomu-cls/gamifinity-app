@@ -18,6 +18,7 @@ import BoardingPass from './components/BoardingPass';
 import MissionIgnition from './components/MissionIgnition';
 import GateOpening from './components/GateOpening';
 import PointCard from './components/PointCard';
+import TrinityCodeMission from './components/TrinityCodeMission';
 const StyleTag = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Charm:wght@400;700&display=swap');
@@ -374,6 +375,7 @@ const App = () => {
   const [showGateOpening, setShowGateOpening] = useState(false);
   const [pendingBrainType, setPendingBrainType] = useState<string | null>(null);
   const [showPointCard, setShowPointCard] = useState(false);
+  const [showTrinityCode, setShowTrinityCode] = useState(false);
   const [localBrainType, setLocalBrainType] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('brainType');
@@ -1499,6 +1501,12 @@ const App = () => {
                   className="flex-1 py-2 text-xs bg-pink-200 text-pink-800 rounded font-bold"
                 >
                   🚀 Gate Opening
+                </button>
+                <button
+                  onClick={() => setShowTrinityCode(true)}
+                  className="flex-1 py-2 text-xs bg-cyan-200 text-cyan-800 rounded font-bold"
+                >
+                  🛰️ Trinity Code
                 </button>
               </div>
 
@@ -5924,6 +5932,36 @@ const App = () => {
             onClose={() => setShowPointCard(false)}
           />
         </div>
+      )}
+
+      {/* Trinity Code Mission Modal */}
+      {showTrinityCode && (
+        <TrinityCodeMission
+          day={story?.program_day || 1}
+          brainType={story?.brain_type || 'right_3d'}
+          userName={story?.name || userData?.display_name || 'ゲスト'}
+          currentStats={{
+            ego_observation: story?.ego_observation || 0,
+            ego_control: story?.ego_control || 0,
+            ego_efficacy: story?.ego_efficacy || 0,
+            ego_affirmation: story?.ego_affirmation || 0,
+            stress_tolerance: story?.stress_tolerance || 0
+          }}
+          onComplete={async (rewards) => {
+            // Update story with new stats
+            await updateStory({
+              ego_observation: (story?.ego_observation || 0) + (rewards.ego_observation || 0),
+              ego_control: (story?.ego_control || 0) + (rewards.ego_control || 0),
+              ego_efficacy: (story?.ego_efficacy || 0) + (rewards.ego_efficacy || 0),
+              ego_affirmation: (story?.ego_affirmation || 0) + (rewards.ego_affirmation || 0),
+              stress_tolerance: (story?.stress_tolerance || 0) + (rewards.stress_tolerance || 0),
+              program_day: (story?.program_day || 1) + 1,
+              total_miles: (story?.total_miles || 0) + 100
+            });
+            await reloadStoryData();
+          }}
+          onClose={() => setShowTrinityCode(false)}
+        />
       )}
 
       {/* Video Modal (In-App Player) */}

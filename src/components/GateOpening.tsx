@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RadarChart from './RadarChart';
 
 interface GateOpeningProps {
     userName: string;
@@ -14,9 +15,34 @@ const GateOpening: React.FC<GateOpeningProps> = ({
     onEnroll,
     onSkip
 }) => {
-    const [phase, setPhase] = useState<'choice' | 'ignition' | 'complete'>('choice');
+    const [phase, setPhase] = useState<'choice' | 'glitch' | 'scan' | 'transmission' | 'complete'>('choice');
     const [selectedPill, setSelectedPill] = useState<'red' | 'blue' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [displayedText, setDisplayedText] = useState('');
+    const [scanProgress, setScanProgress] = useState(0);
+    const [chartValues, setChartValues] = useState({
+        ego_observation: 0,
+        ego_control: 0,
+        ego_efficacy: 0,
+        ego_affirmation: 0,
+        stress_tolerance: 0
+    });
+
+    // Transmission text
+    const transmissionText = `Transmission ID: TC-001
+Status: OS Updating...
+
+「おめでとう、コマンダー。
+あなたは今、正解を求める『思考の牢獄』から抜け出し、
+『感覚の光』という真実へ戻る道を選びました。
+
+ここから21日間、あなたの内側で眠っていた
+『TRINITY CODE（観る・結ぶ・顕れる）』を再起動します。
+
+最初のゲートは『赤：動こう』。
+理由ではなく、あなたの内なる『衝動』の火を灯してください。
+
+準備はいいですか？」`;
 
     // ゲート開放SE再生
     const playGateOpenSound = useCallback(() => {
@@ -40,24 +66,70 @@ const GateOpening: React.FC<GateOpeningProps> = ({
         }
     }, []);
 
+    // Glitch SE
+    const playGlitchSound = useCallback(() => {
+        try {
+            const audio = new Audio('/audio/se/glitch.mp3');
+            audio.volume = 0.5;
+            audio.play().catch(() => { });
+        } catch (e) {
+            console.log('Audio not available');
+        }
+    }, []);
+
+    // Typewriter effect
+    useEffect(() => {
+        if (phase === 'transmission') {
+            let index = 0;
+            const timer = setInterval(() => {
+                if (index < transmissionText.length) {
+                    setDisplayedText(transmissionText.slice(0, index + 1));
+                    index++;
+                } else {
+                    clearInterval(timer);
+                }
+            }, 30);
+            return () => clearInterval(timer);
+        }
+    }, [phase, transmissionText]);
+
+    // Scan animation
+    useEffect(() => {
+        if (phase === 'scan') {
+            const timer = setInterval(() => {
+                setScanProgress(prev => {
+                    if (prev >= 100) {
+                        clearInterval(timer);
+                        // Animate chart values
+                        const baseValues = { ego_observation: 20, ego_control: 15, ego_efficacy: 25, ego_affirmation: 20, stress_tolerance: 15 };
+                        setChartValues(baseValues);
+                        setTimeout(() => setPhase('transmission'), 1500);
+                        return 100;
+                    }
+                    return prev + 2;
+                });
+            }, 50);
+            return () => clearInterval(timer);
+        }
+    }, [phase]);
+
     // 赤いカプセル選択
     const handleRedPill = async () => {
         setSelectedPill('red');
         setIsLoading(true);
+        playGlitchSound();
 
-        // 点火演出開始
-        playIgnitionSound();
-        setPhase('ignition');
+        // Glitch phase
+        setPhase('glitch');
+
+        setTimeout(() => {
+            playIgnitionSound();
+            setPhase('scan');
+        }, 1500);
 
         // エントリー処理
         try {
             await onEnroll();
-
-            // 演出完了後にゲート開放
-            setTimeout(() => {
-                playGateOpenSound();
-                setPhase('complete');
-            }, 3000);
         } catch (error) {
             console.error('Enrollment failed:', error);
             setIsLoading(false);
@@ -73,6 +145,12 @@ const GateOpening: React.FC<GateOpeningProps> = ({
         }, 1000);
     };
 
+    // Complete handler
+    const handleComplete = () => {
+        playGateOpenSound();
+        setPhase('complete');
+    };
+
     // 脳タイプに応じた色
     const brainTypeColors: Record<string, string> = {
         left_3d: 'from-blue-500 to-cyan-400',
@@ -83,36 +161,43 @@ const GateOpening: React.FC<GateOpeningProps> = ({
 
     const typeGradient = brainTypeColors[brainType] || 'from-purple-500 to-blue-400';
 
+    // Digital Rain Character
+    const MatrixChar = ({ delay, x }: { delay: number; x: number }) => (
+        <motion.div
+            className="absolute text-green-500/40 text-sm font-mono"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: '100vh', opacity: [0, 1, 1, 0] }}
+            transition={{
+                duration: 4 + Math.random() * 3,
+                repeat: Infinity,
+                delay: delay,
+                ease: 'linear'
+            }}
+            style={{ left: x }}
+        >
+            {String.fromCharCode(0x30A0 + Math.random() * 96)}
+        </motion.div>
+    );
+
     return (
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
-            {/* マトリックス風背景 */}
+            {/* デジタルレイン背景 */}
             <div className="absolute inset-0 overflow-hidden">
-                {[...Array(50)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className="absolute text-green-500/30 text-xs font-mono"
-                        initial={{
-                            y: -20,
-                            x: Math.random() * window.innerWidth,
-                            opacity: 0
-                        }}
-                        animate={{
-                            y: window.innerHeight + 20,
-                            opacity: [0, 1, 1, 0]
-                        }}
-                        transition={{
-                            duration: 3 + Math.random() * 5,
-                            repeat: Infinity,
-                            delay: Math.random() * 5
-                        }}
-                    >
-                        {String.fromCharCode(0x30A0 + Math.random() * 96)}
-                    </motion.div>
+                {[...Array(80)].map((_, i) => (
+                    <MatrixChar key={i} delay={Math.random() * 5} x={Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 400)} />
                 ))}
             </div>
 
+            {/* Scanlines overlay */}
+            <div
+                className="absolute inset-0 pointer-events-none opacity-10"
+                style={{
+                    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.1) 2px, rgba(0, 255, 0, 0.1) 4px)'
+                }}
+            />
+
             <AnimatePresence mode="wait">
-                {/* Phase 1: カプセル選択 */}
+                {/* Phase 1: カプセル選択 (Matrix Edition) */}
                 {phase === 'choice' && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -120,47 +205,58 @@ const GateOpening: React.FC<GateOpeningProps> = ({
                         exit={{ opacity: 0 }}
                         className="relative z-10 text-center px-6 max-w-lg"
                     >
-                        <motion.h1
+                        {/* System Error Header */}
+                        <motion.div
                             initial={{ y: -20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
-                            className="text-3xl md:text-4xl font-bold text-white mb-6"
+                            className="mb-8"
                         >
-                            {userName}さん、
-                            <br />
-                            <span className="text-green-400">運命の選択</span>です
-                        </motion.h1>
+                            <div className="inline-block px-4 py-2 bg-red-900/50 border border-red-500/50 rounded mb-4">
+                                <span className="text-red-400 font-mono text-xs tracking-wider animate-pulse">
+                                    ⚠️ SYSTEM ERROR
+                                </span>
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-mono font-bold text-green-400 mb-2">
+                                才能渋滞を検知しました
+                            </h1>
+                            <p className="text-green-300/70 font-mono text-sm">
+                                真実のOSを起動しますか？
+                            </p>
+                        </motion.div>
 
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5 }}
-                            className="text-white/70 mb-12 leading-relaxed"
+                            className="text-green-400/60 mb-12 leading-relaxed font-mono text-sm"
                         >
-                            コマンダーへの昇格、おめでとうございます！
+                            {userName}さん、コマンダーへの昇格おめでとうございます。
                             <br />
-                            これから21日間、本当の自分を取り戻す旅が始まります。
+                            選択の時が来ました。
                         </motion.p>
 
-                        {/* カプセル選択 */}
+                        {/* カプセル選択 (Matrix Style) */}
                         <div className="flex justify-center gap-8 md:gap-16">
                             {/* 赤いカプセル */}
                             <motion.button
                                 initial={{ x: -50, opacity: 0 }}
                                 animate={{ x: 0, opacity: 1 }}
                                 transition={{ delay: 1 }}
-                                whileHover={{ scale: 1.1 }}
+                                whileHover={{ scale: 1.1, boxShadow: '0 0 50px rgba(239,68,68,0.8)' }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={handleRedPill}
                                 disabled={isLoading}
-                                className={`flex flex-col items-center gap-4 ${selectedPill === 'red' ? 'opacity-100' :
-                                    selectedPill === 'blue' ? 'opacity-30' : 'opacity-100'
-                                    }`}
+                                className={`flex flex-col items-center gap-4 p-4 rounded-xl border border-red-500/30 bg-black/50
+                                    ${selectedPill === 'red' ? 'opacity-100 border-red-500' :
+                                        selectedPill === 'blue' ? 'opacity-30' : 'opacity-100'}`}
                             >
-                                <div className="w-20 h-28 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)] hover:shadow-[0_0_50px_rgba(239,68,68,0.8)] transition-shadow">
+                                <div className="w-16 h-24 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)]">
                                     <div className="w-full h-1/2 bg-gradient-to-b from-red-400 to-red-500 rounded-t-full" />
                                 </div>
-                                <span className="text-red-400 font-bold text-lg">点火する</span>
-                                <span className="text-white/50 text-sm">21日間の旅へ</span>
+                                <span className="text-red-400 font-mono font-bold">[ 点火 ]</span>
+                                <span className="text-green-400/50 text-xs font-mono text-center leading-relaxed">
+                                    『感覚の光』を<br />取り戻す旅へ
+                                </span>
                             </motion.button>
 
                             {/* 青いカプセル */}
@@ -172,80 +268,134 @@ const GateOpening: React.FC<GateOpeningProps> = ({
                                 whileTap={{ scale: 0.95 }}
                                 onClick={handleBluePill}
                                 disabled={isLoading}
-                                className={`flex flex-col items-center gap-4 ${selectedPill === 'blue' ? 'opacity-100' :
-                                    selectedPill === 'red' ? 'opacity-30' : 'opacity-100'
-                                    }`}
+                                className={`flex flex-col items-center gap-4 p-4 rounded-xl border border-blue-500/30 bg-black/50
+                                    ${selectedPill === 'blue' ? 'opacity-100 border-blue-500' :
+                                        selectedPill === 'red' ? 'opacity-30' : 'opacity-100'}`}
                             >
-                                <div className="w-20 h-28 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.4)] hover:shadow-[0_0_50px_rgba(59,130,246,0.6)] transition-shadow">
+                                <div className="w-16 h-24 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.4)]">
                                     <div className="w-full h-1/2 bg-gradient-to-b from-blue-400 to-blue-500 rounded-t-full" />
                                 </div>
-                                <span className="text-blue-400 font-bold text-lg">保留する</span>
-                                <span className="text-white/50 text-sm">あとで考える</span>
+                                <span className="text-blue-400 font-mono font-bold">[ 保留 ]</span>
+                                <span className="text-green-400/50 text-xs font-mono text-center leading-relaxed">
+                                    思考の重力<br />(Gravity)に留まる
+                                </span>
                             </motion.button>
                         </div>
                     </motion.div>
                 )}
 
-                {/* Phase 2: 点火演出 */}
-                {phase === 'ignition' && (
+                {/* Phase 2: Glitch Effect */}
+                {phase === 'glitch' && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="relative z-10 text-center"
                     >
-                        {/* 点火アニメーション */}
                         <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: [0, 1.5, 1] }}
-                            transition={{ duration: 1.5 }}
-                            className={`w-48 h-48 rounded-full bg-gradient-to-br ${typeGradient} 
-                shadow-[0_0_100px_rgba(255,255,255,0.8)] mx-auto mb-8`}
+                            animate={{
+                                x: [0, -5, 5, -3, 3, 0],
+                                filter: [
+                                    'hue-rotate(0deg)',
+                                    'hue-rotate(90deg)',
+                                    'hue-rotate(-90deg)',
+                                    'hue-rotate(45deg)',
+                                    'hue-rotate(0deg)'
+                                ]
+                            }}
+                            transition={{ duration: 0.3, repeat: 4 }}
+                            className="text-6xl font-mono font-bold text-green-400"
                         >
-                            <motion.div
-                                animate={{
-                                    boxShadow: [
-                                        '0 0 20px rgba(255,255,255,0.5)',
-                                        '0 0 60px rgba(255,255,255,0.8)',
-                                        '0 0 20px rgba(255,255,255,0.5)'
-                                    ]
-                                }}
-                                transition={{ duration: 1, repeat: Infinity }}
-                                className="w-full h-full rounded-full flex items-center justify-center"
-                            >
-                                <span className="text-6xl">🚀</span>
-                            </motion.div>
+                            SYSTEM
                         </motion.div>
-
-                        <motion.h2
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 1 }}
-                            className="text-3xl font-bold text-white"
-                        >
-                            IGNITION
-                        </motion.h2>
-
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 1.5 }}
-                            className="text-white/70 mt-4"
-                        >
-                            点火シーケンス開始...
-                        </motion.p>
-
-                        {/* プログレスバー */}
                         <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: '100%' }}
-                            transition={{ duration: 2.5 }}
-                            className="h-1 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 mt-8 mx-auto max-w-xs rounded-full"
-                        />
+                            animate={{ opacity: [1, 0, 1, 0, 1] }}
+                            transition={{ duration: 0.5, repeat: 2 }}
+                            className="text-2xl font-mono text-red-400 mt-4"
+                        >
+                            [ OVERRIDE ]
+                        </motion.div>
                     </motion.div>
                 )}
 
-                {/* Phase 3: ゲート開放完了 */}
+                {/* Phase 3: Scan Animation */}
+                {phase === 'scan' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="relative z-10 text-center px-6"
+                    >
+                        <div className="font-mono text-green-400 mb-6 text-sm">
+                            <span className="animate-pulse">現在の機体スペックをスキャン中...</span>
+                        </div>
+
+                        {/* Radar Chart Animation */}
+                        <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ duration: 0.5 }}
+                            className="flex justify-center mb-6"
+                        >
+                            <RadarChart
+                                stats={chartValues}
+                                size={200}
+                                primaryColor="#22c55e"
+                                animated={true}
+                            />
+                        </motion.div>
+
+                        {/* Progress Bar */}
+                        <div className="max-w-xs mx-auto">
+                            <div className="h-2 bg-green-900/50 rounded-full overflow-hidden">
+                                <motion.div
+                                    className="h-full bg-green-500"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${scanProgress}%` }}
+                                />
+                            </div>
+                            <div className="text-green-400 font-mono text-xs mt-2">
+                                {scanProgress}% COMPLETE
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Phase 4: Transmission (Typewriter) */}
+                {phase === 'transmission' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="relative z-10 text-left px-6 max-w-lg"
+                    >
+                        <div className="bg-black/80 border border-green-500/30 rounded-lg p-6 font-mono">
+                            <div className="text-green-400 text-xs mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                                INCOMING TRANSMISSION
+                            </div>
+
+                            <pre className="text-green-300 text-sm whitespace-pre-wrap leading-relaxed">
+                                {displayedText}
+                                <span className="animate-pulse">▌</span>
+                            </pre>
+
+                            {displayedText.length === transmissionText.length && (
+                                <motion.button
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.5 }}
+                                    onClick={handleComplete}
+                                    className="mt-6 w-full py-3 bg-green-600 hover:bg-green-500 text-black font-bold rounded-lg transition"
+                                >
+                                    [ ENTER ]
+                                </motion.button>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Phase 5: ゲート開放完了 */}
                 {phase === 'complete' && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
@@ -258,7 +408,7 @@ const GateOpening: React.FC<GateOpeningProps> = ({
                             className="mb-8"
                         >
                             <div className="text-6xl mb-4">🛸</div>
-                            <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
+                            <h2 className="text-3xl font-mono font-bold text-green-400">
                                 GATE OPENED
                             </h2>
                         </motion.div>
@@ -267,16 +417,16 @@ const GateOpening: React.FC<GateOpeningProps> = ({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5 }}
-                            className="text-white text-xl mb-4"
+                            className="text-green-300 text-xl mb-4 font-mono"
                         >
-                            ようこそ、{userName}さん
+                            ようこそ、{userName}コマンダー
                         </motion.p>
 
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 1 }}
-                            className="text-white/70 mb-8"
+                            className="text-green-400/70 mb-8 font-mono text-sm"
                         >
                             21日間の航海が始まります
                         </motion.p>
