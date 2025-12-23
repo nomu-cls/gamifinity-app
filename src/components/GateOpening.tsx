@@ -252,7 +252,7 @@ Status: OS Updating...
 
                         {/* カプセル選択 (Matrix Style) */}
                         <div className="flex justify-center gap-8 md:gap-16">
-                            {/* 赤いカプセル */}
+                            {/* 青いカプセル (左) */}
                             <motion.button
                                 initial={{ x: -50, opacity: 0 }}
                                 animate={{
@@ -262,40 +262,7 @@ Status: OS Updating...
                                 }}
                                 transition={{
                                     delay: 1,
-                                    y: { duration: 3, repeat: Infinity, ease: 'easeInOut' }
-                                }}
-                                whileHover={{ scale: 1.1, boxShadow: '0 0 50px rgba(239,68,68,0.8)' }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleRedPill}
-                                disabled={isLoading}
-                                className={`flex flex-col items-center gap-4 p-4 rounded-xl border border-red-500/30 bg-black/50
-                                    ${selectedPill === 'red' ? 'opacity-100 border-red-500' :
-                                        selectedPill === 'blue' ? 'opacity-30' : 'opacity-100'}`}
-                            >
-                                <motion.div
-                                    className="w-16 h-24 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)]"
-                                    animate={{ rotate: -70 }}
-                                    whileHover={{ rotate: -60 }}
-                                >
-                                    <div className="w-full h-1/2 bg-gradient-to-b from-red-400 to-red-500 rounded-t-full" />
-                                </motion.div>
-                                <span className="text-green-400 font-mono font-bold" style={{ textShadow: '0 0 5px #22c55e' }}>[ 点火 ]</span>
-                                <span className="text-green-400 text-xs font-mono text-center leading-relaxed" style={{ textShadow: '0 0 3px #22c55e' }}>
-                                    『感覚の光』を<br />取り戻す旅へ
-                                </span>
-                            </motion.button>
-
-                            {/* 青いカプセル */}
-                            <motion.button
-                                initial={{ x: 50, opacity: 0 }}
-                                animate={{
-                                    x: 0,
-                                    opacity: 1,
-                                    y: [0, -8, 0]
-                                }}
-                                transition={{
-                                    delay: 1.2,
-                                    y: { duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }
+                                    y: { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }
                                 }}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.95 }}
@@ -307,14 +274,47 @@ Status: OS Updating...
                             >
                                 <motion.div
                                     className="w-16 h-24 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.4)]"
-                                    animate={{ rotate: 70 }}
-                                    whileHover={{ rotate: 60 }}
+                                    animate={{ rotate: -70 }}
+                                    whileHover={{ rotate: -60 }}
                                 >
                                     <div className="w-full h-1/2 bg-gradient-to-b from-blue-400 to-blue-500 rounded-t-full" />
                                 </motion.div>
                                 <span className="text-green-400 font-mono font-bold" style={{ textShadow: '0 0 5px #22c55e' }}>[ 保留 ]</span>
                                 <span className="text-green-400 text-xs font-mono text-center leading-relaxed" style={{ textShadow: '0 0 3px #22c55e' }}>
                                     思考の重力<br />(Gravity)に留まる
+                                </span>
+                            </motion.button>
+
+                            {/* 赤いカプセル (右) */}
+                            <motion.button
+                                initial={{ x: 50, opacity: 0 }}
+                                animate={{
+                                    x: 0,
+                                    opacity: 1,
+                                    y: [0, -8, 0]
+                                }}
+                                transition={{
+                                    delay: 1.2,
+                                    y: { duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }
+                                }}
+                                whileHover={{ scale: 1.1, boxShadow: '0 0 50px rgba(239,68,68,0.8)' }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleRedPill}
+                                disabled={isLoading}
+                                className={`flex flex-col items-center gap-4 p-4 rounded-xl border border-red-500/30 bg-black/50
+                                    ${selectedPill === 'red' ? 'opacity-100 border-red-500' :
+                                        selectedPill === 'blue' ? 'opacity-30' : 'opacity-100'}`}
+                            >
+                                <motion.div
+                                    className="w-16 h-24 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)]"
+                                    animate={{ rotate: 70 }}
+                                    whileHover={{ rotate: 60 }}
+                                >
+                                    <div className="w-full h-1/2 bg-gradient-to-b from-red-400 to-red-500 rounded-t-full" />
+                                </motion.div>
+                                <span className="text-green-400 font-mono font-bold" style={{ textShadow: '0 0 5px #22c55e' }}>[ 点火 ]</span>
+                                <span className="text-green-400 text-xs font-mono text-center leading-relaxed" style={{ textShadow: '0 0 3px #22c55e' }}>
+                                    『感覚の光』を<br />取り戻す旅へ
                                 </span>
                             </motion.button>
                         </div>
