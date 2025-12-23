@@ -217,7 +217,7 @@ Status: OS Updating...
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="relative z-10 text-center px-6 max-w-lg"
+                        className="relative z-10 text-center px-6 py-8 max-w-lg bg-black/70 backdrop-blur-sm rounded-2xl border border-green-500/20"
                     >
                         {/* System Error Header */}
                         <motion.div
