@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, Star, Code, ArrowRight } from 'lucide-react';
+import { Plane, Star, Code, ArrowRight, Sparkles } from 'lucide-react';
 import { UserStory } from '../lib/supabase';
 
 interface Props {
     story: UserStory;
     onClose: () => void;
+    onStartDiagnosis?: () => void;
 }
 
-const BoardingPass: React.FC<Props> = ({ story, onClose }) => {
+const BoardingPass: React.FC<Props> = ({ story, onClose, onStartDiagnosis }) => {
     const [scanLine, setScanLine] = useState(true);
 
     useEffect(() => {
@@ -109,11 +110,10 @@ const BoardingPass: React.FC<Props> = ({ story, onClose }) => {
                                         </>
                                     ) : (
                                         <>
-                                            <p className="text-amber-400/80 text-xs font-mono uppercase tracking-wider">First Mission</p>
+                                            <p className="text-amber-400/80 text-xs font-mono uppercase tracking-wider">Galactic Passport</p>
                                             <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500 mt-1">
-                                                DISCOVER YOUR TYPE
+                                                未発行
                                             </h3>
-                                            <p className="text-[10px] text-white/50 mt-1">脳タイプ診断を完了しよう</p>
                                         </>
                                     )}
                                 </div>
@@ -123,6 +123,41 @@ const BoardingPass: React.FC<Props> = ({ story, onClose }) => {
                                     <div className="w-8 h-8 rounded-full border-2 border-amber-400/50 border-dashed animate-spin" style={{ animationDuration: '8s' }} />
                                 )}
                             </div>
+
+                            {/* Diagnosis CTA - Only show if brain type not set */}
+                            {!story.brain_type && onStartDiagnosis && (
+                                <motion.button
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 1.2 }}
+                                    onClick={() => {
+                                        onClose();
+                                        setTimeout(onStartDiagnosis, 300);
+                                    }}
+                                    className="w-full mt-3 relative overflow-hidden group"
+                                >
+                                    {/* Label */}
+                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+                                        <span className="px-2 py-0.5 bg-amber-500 text-black text-[10px] font-bold rounded-full shadow-lg">
+                                            ⚡ 搭乗前に必須
+                                        </span>
+                                    </div>
+
+                                    <div className="relative mt-2 py-3 px-4 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 rounded-xl
+                                        shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_30px_rgba(245,158,11,0.6)]
+                                        flex items-center justify-center gap-2 transition-all">
+
+                                        {/* Pulse ring animation */}
+                                        <span className="absolute inset-0 rounded-xl animate-ping bg-amber-400/30" style={{ animationDuration: '2s' }} />
+
+                                        <Sparkles className="w-5 h-5 text-white relative z-10" />
+                                        <span className="text-white font-bold tracking-wider relative z-10">
+                                            銀河パスポートを発行
+                                        </span>
+                                        <ArrowRight className="w-4 h-4 text-white relative z-10 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </motion.button>
+                            )}
                         </div>
 
                         <div className="flex items-center space-x-4 pt-4">

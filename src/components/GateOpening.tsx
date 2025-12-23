@@ -274,8 +274,8 @@ Status: OS Updating...
                             >
                                 <motion.div
                                     className="w-16 h-24 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.4)]"
-                                    animate={{ rotate: -70 }}
-                                    whileHover={{ rotate: -60 }}
+                                    animate={{ rotate: -90 }}
+                                    whileHover={{ rotate: -85 }}
                                 >
                                     <div className="w-full h-1/2 bg-gradient-to-b from-blue-400 to-blue-500 rounded-t-full" />
                                 </motion.div>
@@ -307,8 +307,8 @@ Status: OS Updating...
                             >
                                 <motion.div
                                     className="w-16 h-24 bg-gradient-to-b from-red-500 to-red-700 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)]"
-                                    animate={{ rotate: 70 }}
-                                    whileHover={{ rotate: 60 }}
+                                    animate={{ rotate: 90 }}
+                                    whileHover={{ rotate: 85 }}
                                 >
                                     <div className="w-full h-1/2 bg-gradient-to-b from-red-400 to-red-500 rounded-t-full" />
                                 </motion.div>

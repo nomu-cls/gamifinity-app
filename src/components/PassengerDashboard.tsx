@@ -14,6 +14,7 @@ interface Props {
     onStartDiagnosis: () => void;
     onStartTask: (day: number) => void;
     onViewSettings?: () => void;
+    onViewBoardingPass?: () => void;
     onLogout?: () => void;
     siteSettings?: any;
     displayName?: string | null;
@@ -88,6 +89,7 @@ const PassengerDashboard: React.FC<Props> = ({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onStartTask,
     onViewSettings,
+    onViewBoardingPass,
     onLogout,
     siteSettings,
     displayName
@@ -248,6 +250,17 @@ const PassengerDashboard: React.FC<Props> = ({
                 <header className="text-center pt-2 pb-1 relative">
                     {/* Settings Button */}
                     <div className="absolute top-2 right-0 flex gap-2">
+                        {onViewBoardingPass && (
+                            <button
+                                onClick={onViewBoardingPass}
+                                className="p-2 rounded-full bg-white/10 border border-white/20 text-cyan-300 hover:bg-white/20 hover:text-cyan-200 transition-all"
+                                title="搭乗券を見る"
+                            >
+                                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-current rotate-45">
+                                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+                                </svg>
+                            </button>
+                        )}
                         {onViewSettings && (
                             <button
                                 onClick={onViewSettings}

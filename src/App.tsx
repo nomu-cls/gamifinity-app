@@ -342,24 +342,33 @@ const App = () => {
   const [showBoardingPass, setShowBoardingPass] = useState(false);
 
   useEffect(() => {
-    if (!story || !story.name) return;
+    // Wait for story to be loaded
+    if (!story || !story.id) return;
 
     const hasSeenPass = localStorage.getItem('hasSeenBoardingPass');
     const lastSeenBrainType = localStorage.getItem('lastSeenBrainType');
 
-    // Condition 1: First time sighting (onboarding)
+    console.log('[BoardingPass] Check:', {
+      hasSeenPass,
+      lastSeenBrainType,
+      storyBrainType: story.brain_type,
+      storyName: story.name
+    });
+
+    // Condition 1: First time sighting (never seen boarding pass)
     if (!hasSeenPass) {
-      // Wait a bit if it's potentially confusing with other modals, but for now show it.
-      // Maybe wait for "RevivalModal" check to pass? 
-      // Let's set a small timeout to ensure data is loaded.
-      setTimeout(() => setShowBoardingPass(true), 1000);
+      console.log('[BoardingPass] First time - showing pass');
+      setTimeout(() => setShowBoardingPass(true), 1500);
+      return;
     }
+
     // Condition 2: Brain Type Diagnosis recently completed (and not yet seen on pass)
-    else if (story.brain_type && lastSeenBrainType !== story.brain_type) {
+    if (story.brain_type && lastSeenBrainType !== story.brain_type) {
+      console.log('[BoardingPass] New brain type - showing pass');
       setTimeout(() => setShowBoardingPass(true), 1000);
     }
 
-  }, [story?.name, story?.brain_type]);
+  }, [story?.id, story?.brain_type]);
 
   const handleCloseBoardingPass = () => {
     setShowBoardingPass(false);
@@ -1415,16 +1424,25 @@ const App = () => {
                       user_phase: 'passenger', // Force back to passenger
                       intro_progress: 0,
                       day1_field1: null, // Clear assignments
+                      day1_field2: null,
+                      day1_field3: null,
                       day2_field1: null,
+                      day2_field2: null,
+                      day2_field3: null,
+                      day3_field1: null,
+                      day3_field2: null,
+                      day3_field3: null,
                       is_gift_sent: false,
                       is_locked: false, // Ensure not locked out
                       unlocked_days: [], // Reset unlocks
+                      progress: 0,
+                      daily_logs: {},
                     });
 
-                    // Clear local storage if any
-                    localStorage.removeItem('brainType');
+                    // Clear ALL local storage for complete reset
+                    localStorage.clear();
 
-                    setSyncMessage('リセット完了。リロードします。');
+                    setSyncMessage('✅ 完全リセット完了！リロードします。');
                     setTimeout(() => window.location.reload(), 1000);
 
                   } catch (e) {
@@ -1514,33 +1532,34 @@ const App = () => {
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={async () => {
-                    if (!confirm('全ての進捗をリセットして PASSENGER に戻しますか？')) return;
+                    if (!confirm('全ての進捗をリセットして PASSENGER に戻しますか？\n（localStorage も完全クリアされます）')) return;
                     await updateStory({
-                      brain_type: undefined,
+                      brain_type: null,
                       user_phase: 'passenger',
-                      day1_field1: '',
-                      day1_field2: '',
-                      day1_field3: '',
-                      day2_field1: '',
-                      day2_field2: '',
-                      day2_field3: '',
-                      day3_field1: '',
-                      day3_field2: '',
-                      day3_field3: '',
+                      day1_field1: null,
+                      day1_field2: null,
+                      day1_field3: null,
+                      day2_field1: null,
+                      day2_field2: null,
+                      day2_field3: null,
+                      day3_field1: null,
+                      day3_field2: null,
+                      day3_field3: null,
                       day1_reward_viewed: false,
                       day2_reward_viewed: false,
                       day3_reward_viewed: false,
                       daily_logs: {},
+                      unlocked_days: null,
+                      progress: 0,
                     } as any);
-                    localStorage.removeItem('hasSeenBoardingPass');
-                    localStorage.removeItem('lastSeenBrainType');
-                    localStorage.removeItem('promo_dismissed');
-                    alert('Reset to PASSENGER');
+                    // Clear ALL localStorage
+                    localStorage.clear();
+                    alert('✅ 完全リセット完了！\nPassengerとして再スタートします。');
                     window.location.reload();
                   }}
                   className="flex-1 py-2 text-xs bg-red-200 text-red-800 rounded font-bold"
                 >
-                  🔄 Reset to Passenger
+                  🔄 完全リセット
                 </button>
                 <button
                   onClick={async () => {
@@ -4324,6 +4343,7 @@ const App = () => {
               onStartDiagnosis={() => setShowDiagnosis(true)}
               onStartTask={(day) => setView(`day${day}` as any)}
               onViewSettings={isAdmin ? () => setView('admin') : undefined}
+              onViewBoardingPass={() => setShowBoardingPass(true)}
               onLogout={logout}
               displayName={userData?.display_name}
               onPromotion={async () => {
@@ -5889,7 +5909,11 @@ const App = () => {
 
       {/* Digital Boarding Pass (Worldview Integration) */}
       {showBoardingPass && (
-        <BoardingPass story={story} onClose={handleCloseBoardingPass} />
+        <BoardingPass
+          story={story}
+          onClose={handleCloseBoardingPass}
+          onStartDiagnosis={() => setShowDiagnosis(true)}
+        />
       )}
 
       {/* Gate Opening - 21 Day Program Entry */}
