@@ -23,25 +23,23 @@ const MatrixRain: React.FC<MatrixRainProps> = ({ opacity = 1 }) => {
         window.addEventListener('resize', resizeCanvas);
 
         // Matrix characters (Katakana + numbers + symbols)
-        const matrix = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*";
+        const matrix = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*≠∞∑∏√∂∆∇";
         const chars = matrix.split('');
 
         const fontSize = 14;
         const columns = Math.floor(canvas.width / fontSize);
 
-        // Initialize drops - one per column
+        // Initialize drops - one per column with random start positions
         const drops: number[] = [];
         for (let x = 0; x < columns; x++) {
-            drops[x] = Math.random() * -100; // Start at random positions above screen
+            drops[x] = Math.random() * -50; // Start at random positions above screen
         }
 
         const draw = () => {
-            // Black background with slight transparency for trail effect
+            // Fade effect - slightly transparent black overlay
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Green text
-            ctx.fillStyle = '#0F0';
             ctx.font = `${fontSize}px monospace`;
 
             // Draw each column
@@ -53,28 +51,44 @@ const MatrixRain: React.FC<MatrixRainProps> = ({ opacity = 1 }) => {
                 const x = i * fontSize;
                 const y = drops[i] * fontSize;
 
-                // Draw character with glow effect for leading character
+                // Leading character - bright white/green with glow
                 if (drops[i] > 0) {
-                    // Leading character (brighter)
-                    ctx.fillStyle = '#FFF';
+                    // Glow effect
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#0f0';
+                    ctx.fillStyle = '#fff';
                     ctx.fillText(char, x, y);
 
-                    // Reset to green for next iteration
-                    ctx.fillStyle = '#0F0';
+                    // Second layer for brightness
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                    ctx.fillText(char, x, y);
+                }
+
+                // Trail characters - varying brightness
+                for (let j = 1; j < 20; j++) {
+                    const trailY = y - j * fontSize;
+                    if (trailY > 0) {
+                        const trailChar = chars[Math.floor(Math.random() * chars.length)];
+                        const alpha = Math.max(0, 1 - (j * 0.08));
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = `rgba(0, 255, 0, ${alpha * 0.6})`;
+                        ctx.fillText(trailChar, x, trailY);
+                    }
                 }
 
                 // Move drop down
                 drops[i]++;
 
-                // Reset drop to top when it goes off screen (with some randomness)
+                // Reset drop to top when it goes off screen (with randomness)
                 if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
                     drops[i] = 0;
                 }
             }
         };
 
-        // Animation loop - 35ms interval (about 28fps) for classic Matrix feel
-        const intervalId = setInterval(draw, 35);
+        // Animation loop - 40ms interval for smooth Matrix feel
+        const intervalId = setInterval(draw, 40);
 
         return () => {
             clearInterval(intervalId);
